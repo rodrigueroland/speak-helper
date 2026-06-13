@@ -1,0 +1,40 @@
+{
+  "tts": {
+    "backend": "edge",
+    "edge_voice": "zh-CN-XiaoxiaoNeural",
+    "base_url": "https://api.siliconflow.cn/v1",
+    "api_key": "",
+    "model": "FunAudioLLM/CosyVoice2-0.5B",
+    "voice": "FunAudioLLM/CosyVoice2-0.5B:anna",
+    "speed": 1.2,
+    "format": "mp3",
+    "timeout_sec": 30,
+    "sentences_per_chunk": 3
+  },
+  "trigger": {
+    "clipboard_enabled": true,
+    "hotkey_enabled": true,
+    "hotkey": "ctrl+alt+r",
+    "mode": "ask",
+    "min_length": 2,
+    "max_length": 2000,
+    "debounce_ms": 200
+  },
+  "ui": {
+    "dock_x": null,
+    "dock_y": null,
+    "dock_edge": "right",
+    "bubble_timeout_ms": 6000,
+    "theme": "system",
+    "autostart": false
+  },
+  "cache": {
+    "enabled": true,
+    "max_mb": 100
+  },
+  "ocr": {
+    "enabled": true,
+    "model": "PaddlePaddle/PaddleOCR-VL-1.5",
+    "image_quality": 85
+  }
+}
