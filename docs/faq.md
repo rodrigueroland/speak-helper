@@ -10,9 +10,17 @@ Common questions about **Speak Helper** — desktop **TTS**, **read aloud**, **c
 
 A lightweight **PySide6** desktop app that **reads text aloud** using **text-to-speech (TTS)**. Trigger via **clipboard copy**, **global hotkey** (`Ctrl+Alt+R`), or **clipboard image** (OCR then TTS).
 
+### Who should use Speak Helper?
+
+See the full [Use cases](use-cases.md) guide. In short:
+
+- **Prefer listening** — tired eyes, long text, multitasking.
+- **Vision / reading support** — low vision, eye strain, elderly users, dyslexia (for **copied/selected** text, not full UI navigation).
+- **Learning & OCR** — language practice, screenshot text read aloud.
+
 ### Is it a screen reader?
 
-No. It is a **read-aloud assistant** for text you select or copy—not a full **accessibility screen reader** like NVDA or VoiceOver. It complements workflows for **dyslexia**, **multitasking**, and **language learning**.
+No. It is a **read-aloud assistant** for text you select or copy—not a full **accessibility screen reader** like NVDA or VoiceOver. It complements workflows for **low vision listening**, **dyslexia**, **multitasking**, and **language learning**.
 
 ### Does it work offline?
 

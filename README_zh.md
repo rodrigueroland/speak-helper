@@ -9,15 +9,37 @@
 
 > **别名 / 搜索词：** 剪贴板朗读、选中朗读、屏幕朗读、识图朗读、OpenAI TTS 客户端、Edge TTS 桌面版、文字转语音、读屏辅助、无障碍朗读。
 
-## 适用场景
+## 使用场景
 
-| 场景 | 说明 |
+当你 **不想盯着文字看、看字吃力，或更适合用耳朵接收信息** 时，Speak Helper 可以把屏幕上的文字转成语音。
+
+### 不想看字，想听内容
+
+| 场景 | 举例 |
 |------|------|
-| **无障碍 / 阅读障碍** | 用耳朵听，减轻纯视觉阅读负担 |
-| **多任务** | 边写代码、边做饭、边通勤时听内容 |
-| **语言学习** | 中文、英文等多种神经语音 |
-| **截图 / 图片文字** | Vision OCR 识别后自动朗读 |
-| **低打扰** | 复制或快捷键即可，无需浏览器插件 |
+| **累了不想读** | 下班后用听的代替看：文章、邮件、聊天记录 |
+| **长文档** | 报告、说明书分段复制，边听边休息 |
+| **字号小、排版密** | 从任意软件复制文字，用朗读减轻用眼 |
+
+### 视力与阅读辅助
+
+| 场景 | 举例 |
+|------|------|
+| **视力不佳 / 低视力** | 在浏览器、PDF、桌面软件里选中或复制文字后收听（辅助听内容，**不能替代**专业读屏软件的全局导航） |
+| **视疲劳、用眼过度** | 减少长时间盯屏，改听 copied 段落 |
+| **老年用户** | 家人可帮忙设好快捷键；复制短信、新闻片段即可清晰收听 |
+| **阅读障碍** | 听觉与文字同步，降低纯视觉阅读压力 |
+
+> **说明：** Speak Helper 是 **朗读辅助工具**，针对你主动复制或选中的内容，**不是** NVDA、VoiceOver 那样的完整读屏。可与读屏软件 **搭配使用**，也适合偶尔「听一段」的场景。
+
+### 日常效率
+
+| 场景 | 举例 |
+|------|------|
+| **多任务** | 边写代码、做饭、运动、通勤时听内容 |
+| **语言学习** | 中文 / 英文神经语音，练听力、跟读 |
+| **截图 / 图片文字** | 复制截图 → OCR 识图 → 自动朗读 |
+| **低打扰** | `Ctrl+Alt+R` 朗读选中文字，无需浏览器插件 |
 
 ## 功能
 
@@ -103,6 +125,7 @@ bash scripts/build_mac.sh
 | 安装 | [docs/installation.md](docs/installation.md) | [docs/zh/installation.md](docs/zh/installation.md) |
 | 配置 | [docs/configuration.md](docs/configuration.md) | [docs/zh/configuration.md](docs/zh/configuration.md) |
 | 常见问题 | [docs/faq.md](docs/faq.md) | [docs/zh/faq.md](docs/zh/faq.md) |
+| 使用场景 | [docs/use-cases.md](docs/use-cases.md) | [docs/zh/use-cases.md](docs/zh/use-cases.md) |
 | 架构 | [docs/architecture.md](docs/architecture.md) | [docs/zh/architecture.md](docs/zh/architecture.md) |
 
 ## 运行测试

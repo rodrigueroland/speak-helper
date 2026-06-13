@@ -9,15 +9,37 @@
 
 > **Also known as:** clipboard TTS, read-aloud tool, screen text speaker, OCR-to-speech, OpenAI TTS client, Edge TTS desktop app, 文字转语音, 剪贴板朗读, 选中朗读.
 
-## Why Speak Helper?
+## Use cases
 
-| Use case | How it helps |
-|----------|--------------|
-| **Accessibility / dyslexia** | Hear text instead of only reading on screen |
-| **Multitasking** | Listen while coding, cooking, or commuting |
-| **Language learning** | Natural voices for Chinese, English, and more |
-| **Screenshot / image text** | OCR vision API → spoken output |
-| **Low friction** | Copy to clipboard or `Ctrl+Alt+R` — no browser extension required |
+Speak Helper turns on-screen text into speech — useful whenever **reading is tiring, difficult, or inconvenient**.
+
+### Prefer listening over reading
+
+| Scenario | Example |
+|----------|---------|
+| **Too tired to read** | Listen to articles, emails, or chat messages after a long day |
+| **Long documents** | Hear reports or PDF excerpts without scrolling line by line |
+| **Small / dense UI** | Copy text from apps with cramped fonts and let it read aloud |
+
+### Vision & reading support
+
+| Scenario | Example |
+|----------|---------|
+| **Low vision** | Hear selected text from browsers, PDFs, or desktop apps (complements—not replaces—full screen readers) |
+| **Eye strain / fatigue** | Reduce screen time by listening to copied paragraphs |
+| **Elderly users** | Family can help set hotkeys; copy a message or news snippet to hear it clearly |
+| **Dyslexia / reading difficulty** | Audio reinforces written content from any app |
+
+> **Note:** Speak Helper is a **read-aloud assistant** for text you copy or select. It is **not** a full screen reader (NVDA, VoiceOver). It works well **alongside** those tools or when you only need occasional listening.
+
+### Daily productivity
+
+| Scenario | Example |
+|----------|---------|
+| **Multitasking** | Listen while coding, cooking, exercising, or commuting |
+| **Language learning** | Natural Chinese / English neural voices for listening practice |
+| **Screenshot & image text** | Copy a screenshot → OCR extracts text → automatic read-aloud |
+| **Quick workflow** | `Ctrl+Alt+R` on selected text — no browser extension required |
 
 ## Features
 
@@ -104,6 +126,7 @@ bash scripts/build_mac.sh
 | Installation | [docs/installation.md](docs/installation.md) | [docs/zh/installation.md](docs/zh/installation.md) |
 | Configuration | [docs/configuration.md](docs/configuration.md) | [docs/zh/configuration.md](docs/zh/configuration.md) |
 | FAQ | [docs/faq.md](docs/faq.md) | [docs/zh/faq.md](docs/zh/faq.md) |
+| Use cases | [docs/use-cases.md](docs/use-cases.md) | [docs/zh/use-cases.md](docs/zh/use-cases.md) |
 | Architecture | [docs/architecture.md](docs/architecture.md) | [docs/zh/architecture.md](docs/zh/architecture.md) |
 
 ## Tests

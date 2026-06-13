@@ -10,6 +10,7 @@ Speak Helper is a **desktop text-to-speech (TTS)** application: **read aloud** s
 |-------|-------------|
 | [Installation](installation.md) | Python, uv, pip, PyInstaller builds |
 | [Configuration](configuration.md) | TTS backends, OCR, triggers, cache |
+| [Use cases](use-cases.md) | Listen instead of read, vision support, productivity |
 | [FAQ](faq.md) | Troubleshooting, providers, accessibility |
 | [Architecture](architecture.md) | Modules, signals, data flow |
 

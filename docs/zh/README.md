@@ -10,6 +10,7 @@ Speak Helper 是一款 **桌面文字转语音（TTS）** 应用：对选中或�
 |------|------|
 | [安装](installation.md) | Python、uv、pip、PyInstaller 打包 |
 | [配置](configuration.md) | TTS 后端、OCR、触发方式、缓存 |
+| [使用场景](use-cases.md) | 不想看字听内容、视力辅助、日常效率 |
 | [常见问题](faq.md) | 排错、API 提供商、无障碍 |
 | [架构](architecture.md) | 模块、信号、数据流 |
 
