@@ -20,7 +20,7 @@ hiddenimports = [
     "edge_tts",
     "edge_tts.communicate",
     "edge_tts.exceptions",
-    "edge_tts.list_voices",
+    "edge_tts.voices",
     # aiohttp（edge_tts 运行时依赖）
     "aiohttp",
     "aiohttp.resolver",

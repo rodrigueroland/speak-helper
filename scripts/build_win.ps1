@@ -11,6 +11,13 @@ Set-Location $Root
 Write-Host "=== SpeakHelper Windows build ===" -ForegroundColor Cyan
 Write-Host "Working dir: $Root"
 
+Write-Host "Syncing dependencies (including edge-tts) ..."
+uv sync --all-extras
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Dependency sync failed." -ForegroundColor Red
+    exit 1
+}
+
 Write-Host "Generating icon.ico ..."
 uv run python scripts/make_icon.py
 if ($LASTEXITCODE -ne 0) {
