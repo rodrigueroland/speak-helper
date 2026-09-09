@@ -35,6 +35,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Keep Qwen/OpenAI cache entries separate across provider presets and UI languages
 - Remove non-cached audio after playback, replacement, cancellation, and shutdown
 - Retry temporarily locked/delayed clipboard providers until the configured deadline
 - Report clipboard snapshot, injection, and restoration failures without leaving capture active

@@ -112,8 +112,8 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 ## Mission 9 — OpenAI-compatible TTS — DONE
 
 - Objective: support local and remote compatible `/audio/speech` endpoints.
-- Decisions: API key is optional; endpoint participates in cache identity; validate
-  content type and empty responses.
+- Decisions: API key is optional; endpoint, provider preset, and language participate
+  in cache identity; validate content type and empty responses.
 - Files modified: `speech_service.py`, Settings and configuration.
 - Tests added: no-key request, timeout, cache, malformed content type.
 - Validation: mocked error suite and real loopback HTTP server synthesis contract pass.
@@ -124,7 +124,8 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Objective: connect to Qwen through an editable OpenAI-compatible local preset.
 - Decisions: no PyTorch/CUDA desktop dependency; preset reuses the generic client.
 - Files modified: `config.py`, `ui/settings_dialog.py`.
-- Tests added: generic local no-key transport coverage.
+- Tests added: generic local no-key transport coverage and language-separated cache
+  identity for otherwise identical Qwen requests.
 - Validation: preset renders with a published Qwen model and voice; the real-socket
   compatible contract passes with French language metadata.
 - Remaining issues: actual GPU-backed Qwen synthesis remains a release-environment gate.
@@ -207,7 +208,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 84 total test cases across configuration, localization, hotkeys, clipboard,
+- Tests added: 85 total test cases across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: none for automated service and UI boundaries; named-application

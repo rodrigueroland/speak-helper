@@ -49,7 +49,9 @@ def test_cache_hit(tmp_path):
     speed = 1.2
     fmt = "mp3"
     base_url = "https://api.openai.com/v1"
-    key = hashlib.sha1(f"{base_url}|{text}|{voice}|{model}|{speed}|{fmt}".encode()).hexdigest()
+    key = hashlib.sha1(
+        f"{base_url}|custom|en|{text}|{voice}|{model}|{speed}|{fmt}".encode()
+    ).hexdigest()
     cached_file = tmp_path / f"{key}.mp3"
     cached_file.write_bytes(b"fake_audio")
 
@@ -221,3 +223,22 @@ def test_failed_edge_synthesis_removes_partial_temporary_file(tmp_path):
         worker._fetch_edge()
 
     assert not partial.exists()
+
+
+def test_qwen_cache_separates_languages(tmp_path):
+    from speak_helper.speech_service import _ChunkWorker
+
+    config = _make_config(tmp_path)
+    config.provider_preset = "qwen3_local"
+    response = MagicMock(content=b"audio", headers={"content-type": "audio/mpeg"})
+    response.raise_for_status = MagicMock()
+    with patch("httpx.Client") as client_class:
+        post = client_class.return_value.__enter__.return_value.post
+        post.return_value = response
+        english_path = _ChunkWorker("shared text", 0, 1, config)._fetch_openai()
+        config.language = "fr"
+        french_path = _ChunkWorker("shared text", 0, 1, config)._fetch_openai()
+
+    assert english_path != french_path
+    assert post.call_count == 2
+    assert post.call_args.kwargs["json"]["language"] == "French"

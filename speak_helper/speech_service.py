@@ -131,8 +131,8 @@ class _ChunkWorker(QObject):
             raise ValueError(f"Unsupported audio format: {config.audio_format}")
         cache_key = hashlib.sha1(
             (
-                f"{config.base_url}|{self.chunk}|{config.voice}|{config.model}|"
-                f"{config.speed}|{config.audio_format}"
+                f"{config.base_url}|{config.provider_preset}|{config.language}|{self.chunk}|"
+                f"{config.voice}|{config.model}|{config.speed}|{config.audio_format}"
             ).encode("utf-8", errors="replace")
         ).hexdigest()
         cache_file = config.cache_dir / f"{cache_key}.{config.audio_format}"
