@@ -35,6 +35,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Enforce the configured maximum length for manual, automatic, and OCR speech
 - Avoid retaining a plaintext API-key copy when the OS credential store succeeds
 - Keep Qwen/OpenAI cache entries separate across provider presets and UI languages
 - Remove non-cached audio after playback, replacement, cancellation, and shutdown

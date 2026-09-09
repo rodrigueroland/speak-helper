@@ -18,6 +18,7 @@ French locale, otherwise `en`).
 | `trigger.mode` | `manual` | `manual`, `ask`, or `auto` |
 | `trigger.hotkey` | `ctrl+alt+r` | Read Selection chord |
 | `trigger.stop_hotkey` | `ctrl+alt+shift+x` | Stop chord |
+| `trigger.max_length` | `20000` | Maximum characters in any TTS request |
 | `clipboard.restore_after_capture` | `true` | Restore prior MIME clipboard data |
 | `clipboard.capture_timeout_ms` | `1500` | Selection-copy deadline |
 | `tts.backend` | `edge` | `edge` or `openai` |
@@ -58,4 +59,5 @@ Saving a legacy plaintext key from Settings migrates it through the same path.
 The Speech page exposes every preprocessing option. Disabling text processing sends
 the selected text to the backend unchanged except for trimming surrounding whitespace.
 Code remains readable by default. URL handling can preserve the complete URL, keep
-only its domain, or replace it with the spoken word “link”.
+only its domain, or replace it with the spoken word “link”. The maximum-text limit
+still applies when preprocessing is disabled and covers manual, ask, auto, and OCR text.

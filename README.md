@@ -153,6 +153,8 @@ server project's own requirements and security guidance.
 - French accents, Unicode, multiline text, and repeated selections are supported.
 - All processing options are available under **Settings → Speech** and can be
   disabled as a group when exact source text is preferred.
+- The configured maximum text length applies to every speech source, including
+  manual PyCharm selections.
 
 ## Diagnostics and logs
 

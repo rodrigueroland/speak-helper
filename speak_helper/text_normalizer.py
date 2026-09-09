@@ -24,19 +24,27 @@ def normalize_for_speech(text: str, options: NormalizationOptions | None = None)
     """Normalize layout noise without removing technical meaning."""
     selected = options or NormalizationOptions()
     if not selected.enabled:
-        return text.strip()
-    result = text.replace("\r\n", "\n").replace("\r", "\n")
-    if not selected.preserve_code:
-        result = re.sub(r"```.*?```", "", result, flags=re.DOTALL)
-    if selected.strip_markdown_markers:
-        result = _HEADING.sub("", result)
-        result = _BULLET.sub("", result)
-        result = _FENCE.sub("", result)
-    if selected.url_mode == "omit":
-        result = _URL.sub("link", result)
-    elif selected.url_mode == "domain":
-        result = _URL.sub(lambda match: urlsplit(match.group(0)).netloc or match.group(0), result)
-    result = re.sub(r"[ \t]+", " ", result)
-    result = re.sub(r" *\n *", "\n", result)
-    result = re.sub(r"\n{3,}", "\n\n", result)
+        result = text.strip()
+    else:
+        result = text.replace("\r\n", "\n").replace("\r", "\n")
+        if not selected.preserve_code:
+            result = re.sub(r"```.*?```", "", result, flags=re.DOTALL)
+        if selected.strip_markdown_markers:
+            result = _HEADING.sub("", result)
+            result = _BULLET.sub("", result)
+            result = _FENCE.sub("", result)
+        if selected.url_mode == "omit":
+            result = _URL.sub("link", result)
+        elif selected.url_mode == "domain":
+            result = _URL.sub(
+                lambda match: urlsplit(match.group(0)).netloc or match.group(0), result
+            )
+        result = re.sub(r"[ \t]+", " ", result)
+        result = re.sub(r" *\n *", "\n", result)
+        result = re.sub(r"\n{3,}", "\n\n", result)
     return result.strip()
+
+
+def limit_for_speech(text: str, max_length: int) -> str:
+    """Apply the shared request-size boundary after optional normalization."""
+    return text[: max(0, max_length)].rstrip()

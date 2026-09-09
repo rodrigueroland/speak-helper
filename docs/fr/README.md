@@ -110,6 +110,8 @@ embarqués ni imposés par Speak Helper.
 - Les accents français, Unicode et textes multilignes sont conservés.
 - Tous les réglages de préparation sont accessibles dans **Paramètres → Voix** ;
   ils peuvent être désactivés ensemble pour conserver le texte source.
+- La longueur maximale configurée s’applique à toutes les sources, y compris aux
+  sélections manuelles dans PyCharm.
 
 ## Diagnostic
 

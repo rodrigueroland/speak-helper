@@ -1,6 +1,10 @@
 """Technical text normalization tests."""
 
-from speak_helper.text_normalizer import NormalizationOptions, normalize_for_speech
+from speak_helper.text_normalizer import (
+    NormalizationOptions,
+    limit_for_speech,
+    normalize_for_speech,
+)
 
 
 def test_markdown_and_french_unicode_are_preserved() -> None:
@@ -32,3 +36,11 @@ def test_preprocessing_can_be_disabled_without_altering_content() -> None:
     source = "# Heading\r\n\r\n- item   with spaces"
 
     assert normalize_for_speech(source, NormalizationOptions(enabled=False)) == source
+
+
+def test_length_limit_applies_even_when_preprocessing_is_disabled() -> None:
+    source = "0123456789"
+
+    normalized = normalize_for_speech(source, NormalizationOptions(enabled=False))
+
+    assert limit_for_speech(normalized, 5) == "01234"

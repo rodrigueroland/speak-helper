@@ -23,7 +23,7 @@ from .selection_capture import SelectionCaptureService
 from .speech_service import SpeechService
 from .startup_service import StartupService
 from .text_filter import TextFilter
-from .text_normalizer import NormalizationOptions, normalize_for_speech
+from .text_normalizer import NormalizationOptions, limit_for_speech, normalize_for_speech
 from .ui.floating_dock import FloatingDock
 from .ui.prompt_bubble import PromptBubble
 from .ui.settings_dialog import SettingsDialog
@@ -202,6 +202,14 @@ class SpeakHelperApp:
 
     def _speak(self, text: str) -> None:
         normalized = normalize_for_speech(text, self._normalization_options())
+        limited = limit_for_speech(normalized, self._config.max_length)
+        if len(limited) < len(normalized):
+            logger.info(
+                "text_truncated original_length=%d max_length=%d",
+                len(normalized),
+                self._config.max_length,
+            )
+        normalized = limited
         if not normalized:
             return
         self._last_text = normalized

@@ -83,11 +83,13 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 
 - Objective: make technical prose pleasant without changing meaning.
 - Decisions: conservative Markdown cleanup, configurable URL handling, preserve
-  fenced code by default, and expose every option in the localized Speech page.
+  fenced code by default, expose every option in the localized Speech page, and
+  apply the configured length boundary to every speech source.
 - Files modified: `speak_helper/text_normalizer.py`, `speak_helper/main.py`,
   localization catalogs, Settings, theme, and configuration documentation.
 - Tests added: French accents, Unicode, Markdown, URLs, multiline code, bypass,
-  Settings persistence, dependent-control state, and runtime translation.
+  common length limiting, Settings persistence, dependent-control state, and
+  runtime translation.
 - Validation: normalization and Settings tests pass in both languages.
 - Remaining issues: none for the current preprocessing scope.
 
@@ -210,7 +212,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 87 total test cases across configuration, localization, hotkeys, clipboard,
+- Tests added: 88 total test cases across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: none for automated service and UI boundaries; named-application
