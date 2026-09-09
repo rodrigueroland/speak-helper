@@ -312,6 +312,10 @@ class Config:
         return str(self.get("tts", "backend", default="edge"))
 
     @property
+    def provider_preset(self) -> str:
+        return str(self.get("tts", "provider_preset", default="custom"))
+
+    @property
     def edge_voice(self) -> str:
         return str(self.get("tts", "edge_voice", default="en-US-AriaNeural"))
 

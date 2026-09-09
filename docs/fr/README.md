@@ -77,11 +77,19 @@ sont signalés clairement.
 ### Qwen3-TTS local
 
 Le préréglage **Qwen3-TTS local** utilise le même client compatible OpenAI et
-préremplit une URL locale modifiable. Lancez séparément un serveur Qwen3-TTS qui
-expose `/audio/speech`, puis adaptez l'URL, le modèle et la voix.
+préremplit une URL locale modifiable, le modèle publié
+`Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` et la voix `Vivian`. Lancez séparément un
+serveur Qwen3-TTS qui expose `/audio/speech`, puis adaptez l'URL, le modèle et la
+voix. Ce préréglage transmet aussi `language` avec la valeur `English` ou `French`
+selon la langue de l'interface.
 
 L'application de bureau n'installe ni PyTorch, ni CUDA, ni Qwen ; l'environnement
-GPU reste complètement isolé.
+GPU reste complètement isolé. Consultez le
+[projet officiel Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS). Des serveurs
+compatibles existent, notamment
+[qwen3_audio_api](https://github.com/second-state/qwen3_audio_api) et
+[qwen3-tts-server](https://github.com/malaiwah/qwen3-tts-server), sans être
+embarqués ni imposés par Speak Helper.
 
 ## Lecture et normalisation
 

@@ -9,7 +9,7 @@ release commit and packaged artifact.
 - [x] Ruff formatting check
 - [x] Ruff lint
 - [x] mypy
-- [x] pytest (54 tests on Windows/Python 3.12)
+- [x] pytest (62 tests on Windows/Python 3.12)
 - [x] Windows native selection probe, 10/10 consecutive captures
 - [x] GitHub Actions green on Linux and Windows, Python 3.11 and 3.13
 
@@ -24,9 +24,10 @@ release commit and packaged artifact.
 - [x] Real Qt MP3 playback starts and finishes
 - [x] Windows releases the completed media file
 - [x] Empty local API key omits Authorization
-- [ ] Live local OpenAI-compatible server test
-- [ ] Live Qwen3-TTS-compatible server test
-- [ ] OCR mocked response/error tests
+- [x] Live loopback OpenAI-compatible server test
+- [x] Live loopback Qwen3-TTS-compatible protocol test
+- [x] OCR mocked response/error tests
+- [ ] Live GPU-backed Qwen3-TTS server synthesis
 
 ## Critical Windows acceptance
 

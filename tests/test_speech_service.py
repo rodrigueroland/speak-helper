@@ -23,6 +23,8 @@ def qt_app():
 def _make_config(tmp_path: Path):
     cfg = MagicMock()
     cfg.backend = "openai"
+    cfg.provider_preset = "custom"
+    cfg.language = "en"
     cfg.api_key = "test-key"
     cfg.base_url = "https://api.openai.com/v1"
     cfg.model = "tts-1"

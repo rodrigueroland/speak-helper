@@ -15,6 +15,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Diagnostics panel and structured rotating logs
 - Qwen3-TTS local preset through the OpenAI-compatible backend
 - Repeatable Windows selection probe and expanded automated tests
+- Published Qwen3-TTS CustomVoice defaults with automatic English/French hints
+- Loopback HTTP integration coverage for custom and Qwen-compatible servers
+- OCR response, authentication, and cancellation coverage
 
 ### Changed
 

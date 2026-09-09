@@ -101,24 +101,25 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Validation: live English and French synthesis passed; real Qt playback completed.
 - Remaining issues: optional dynamic voice discovery is deferred.
 
-## Mission 9 — OpenAI-compatible TTS — IN PROGRESS
+## Mission 9 — OpenAI-compatible TTS — DONE
 
 - Objective: support local and remote compatible `/audio/speech` endpoints.
 - Decisions: API key is optional; endpoint participates in cache identity; validate
   content type and empty responses.
 - Files modified: `speech_service.py`, Settings and configuration.
 - Tests added: no-key request, timeout, cache, malformed content type.
-- Validation: mocked HTTP suite passes.
-- Remaining issues: live validation against a local compatible server.
+- Validation: mocked error suite and real loopback HTTP server synthesis contract pass.
+- Remaining issues: none for the generic transport.
 
-## Mission 10 — Qwen3-TTS — IN PROGRESS
+## Mission 10 — Qwen3-TTS — DONE
 
 - Objective: connect to Qwen through an editable OpenAI-compatible local preset.
 - Decisions: no PyTorch/CUDA desktop dependency; preset reuses the generic client.
 - Files modified: `config.py`, `ui/settings_dialog.py`.
 - Tests added: generic local no-key transport coverage.
-- Validation: preset renders; no Qwen server was available for a live test.
-- Remaining issues: live compatible-server validation.
+- Validation: preset renders with a published Qwen model and voice; the real-socket
+  compatible contract passes with French language metadata.
+- Remaining issues: actual GPU-backed Qwen synthesis remains a release-environment gate.
 
 ## Mission 11 — Audio player UX — DONE
 
@@ -146,9 +147,10 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: disabled by default, optional local-key transport, isolated worker,
   length-only logs, and shutdown cleanup.
 - Files modified: `ocr_service.py`, configuration and Settings.
-- Tests added: none yet.
-- Validation: imports and application smoke launch pass with OCR disabled.
-- Remaining issues: add mocked OCR response tests before expanding OCR features.
+- Tests added: image encoding, optional authentication, valid/malformed/no-text
+  responses, and cancellation coverage.
+- Validation: OCR suite passes with the feature disabled by default at startup.
+- Remaining issues: none for the isolated optional scope.
 
 ## Mission 14 — Settings UI — IN PROGRESS
 
@@ -188,10 +190,10 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 54 total tests across configuration, localization, hotkeys, clipboard,
+- Tests added: 62 total tests across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
-- Remaining issues: OCR, diagnostics, HTTP status, and more UI coverage.
+- Remaining issues: more UI resize/DPI and packaged integration coverage.
 
 ## Mission 18 — Windows manual validation — IN PROGRESS
 

@@ -20,6 +20,29 @@ _PARA_SEP = re.compile(r"\n\s*\n")
 _SUPPORTED_AUDIO_FORMATS = {"mp3", "wav", "opus", "aac", "flac", "pcm"}
 
 
+def build_openai_speech_payload(
+    *,
+    model: str,
+    text: str,
+    voice: str,
+    speed: float,
+    audio_format: str,
+    provider_preset: str = "custom",
+    language: str = "en",
+) -> dict[str, str | float]:
+    """Build the standard request, adding Qwen language only for its preset."""
+    payload: dict[str, str | float] = {
+        "model": model,
+        "input": text,
+        "voice": voice,
+        "speed": speed,
+        "response_format": audio_format,
+    }
+    if provider_preset == "qwen3_local":
+        payload["language"] = "French" if language == "fr" else "English"
+    return payload
+
+
 def split_sentences(text: str) -> list[str]:
     """Split text at common English, French, and CJK sentence boundaries."""
     parts: list[str] = []
@@ -119,13 +142,15 @@ class _ChunkWorker(QObject):
                 response = client.post(
                     endpoint,
                     headers=headers,
-                    json={
-                        "model": config.model,
-                        "input": self.chunk,
-                        "voice": config.voice,
-                        "speed": config.speed,
-                        "response_format": config.audio_format,
-                    },
+                    json=build_openai_speech_payload(
+                        model=config.model,
+                        text=self.chunk,
+                        voice=config.voice,
+                        speed=config.speed,
+                        audio_format=config.audio_format,
+                        provider_preset=config.provider_preset,
+                        language=config.language,
+                    ),
                 )
                 response.raise_for_status()
         except httpx.ConnectError as exc:

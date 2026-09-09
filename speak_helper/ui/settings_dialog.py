@@ -40,6 +40,7 @@ from ..diagnostics import collect_diagnostics, format_diagnostics
 from ..error_messages import localize_speech_error
 from ..hotkey_service import ACTION_READ, HotkeyService
 from ..i18n import Translator
+from ..speech_service import build_openai_speech_payload
 
 EDGE_VOICES = (
     ("voice.en_us_aria", "en-US-AriaNeural"),
@@ -63,6 +64,8 @@ class _TtsTestWorker(QObject):
         api_key: str,
         model: str,
         voice: str,
+        provider_preset: str,
+        language: str,
         timeout: int,
         test_phrase: str,
     ) -> None:
@@ -73,6 +76,8 @@ class _TtsTestWorker(QObject):
         self._api_key = api_key
         self._model = model
         self._voice = voice
+        self._provider_preset = provider_preset
+        self._language = language
         self._timeout = timeout
         self._test_phrase = test_phrase
 
@@ -97,12 +102,15 @@ class _TtsTestWorker(QObject):
                 response = httpx.post(
                     f"{self._base_url.rstrip('/')}/audio/speech",
                     headers=headers,
-                    json={
-                        "model": self._model,
-                        "input": self._test_phrase,
-                        "voice": self._voice,
-                        "response_format": "mp3",
-                    },
+                    json=build_openai_speech_payload(
+                        model=self._model,
+                        text=self._test_phrase,
+                        voice=self._voice,
+                        speed=1.0,
+                        audio_format="mp3",
+                        provider_preset=self._provider_preset,
+                        language=self._language,
+                    ),
                     timeout=self._timeout,
                 )
                 response.raise_for_status()
@@ -570,7 +578,8 @@ class SettingsDialog(QDialog):
         self._update_provider_controls()
         if self._provider.currentData() == "qwen3_local":
             self._base_url.setText("http://127.0.0.1:8000/v1")
-            self._model.setText("Qwen/Qwen3-TTS")
+            self._model.setText("Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice")
+            self._voice.setText("Vivian")
 
     def _toggle_api_key(self) -> None:
         hidden = self._api_key.echoMode() == QLineEdit.EchoMode.Password
@@ -624,6 +633,8 @@ class SettingsDialog(QDialog):
             self._api_key.text().strip(),
             self._model.text().strip(),
             self._voice.text().strip(),
+            str(self._provider.currentData()),
+            self._translator.language,
             self._timeout.value(),
             self._translator.text("test.tts_phrase"),
         )

@@ -114,11 +114,19 @@ connections, timeouts, HTTP failures, empty audio, and unsupported content types
 ### Qwen3-TTS Local
 
 Choose **Qwen3-TTS Local** to prefill an editable local OpenAI-compatible endpoint
-and model. The desktop app does not install or import PyTorch, CUDA, or Qwen. Run a
+with the published `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` model and `Vivian`
+voice. The desktop app does not install or import PyTorch, CUDA, or Qwen. Run a
 Qwen3-TTS server separately and expose an OpenAI-compatible `/audio/speech` route;
-then edit URL, model, voice, and timeout to match that server.
+then edit URL, model, voice, and timeout to match that server. With this preset,
+Speak Helper also sends `language` as `English` or `French` from the selected UI
+language.
 
-No specific third-party Qwen server implementation is assumed or bundled.
+No third-party server is bundled. See the
+[official Qwen3-TTS project](https://github.com/QwenLM/Qwen3-TTS) for models and
+isolated environment setup. Compatible server wrappers include
+[qwen3_audio_api](https://github.com/second-state/qwen3_audio_api) and
+[qwen3-tts-server](https://github.com/malaiwah/qwen3-tts-server); follow the
+server project's own requirements and security guidance.
 
 ## Playback and text processing
 

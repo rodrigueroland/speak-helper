@@ -37,5 +37,9 @@ voice, speed, and response format. Authorization is sent only when the API key i
 non-empty. The Qwen3 preset changes editable defaults but uses this same transport.
 The desktop process never imports a Qwen, CUDA, or PyTorch package.
 
+The Qwen3 preset defaults to `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` with voice
+`Vivian`. It adds `language: English` or `language: French` to the otherwise
+standard OpenAI speech payload. Custom providers receive only the standard fields.
+
 Environment variables remain supported as fallbacks when the corresponding value
 was not explicitly saved. Prefer the Settings UI for normal use.

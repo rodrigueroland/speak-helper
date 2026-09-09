@@ -47,6 +47,7 @@ class _OcrWorker(QThread):
         api_key: str,
         model: str,
         quality: int,
+        timeout_sec: int,
         parent: QObject | None = None,
     ) -> None:
         super().__init__(parent)
@@ -55,10 +56,15 @@ class _OcrWorker(QThread):
         self._api_key = api_key
         self._model = model
         self._quality = quality
+        self._timeout_sec = timeout_sec
 
     def run(self) -> None:
+        if self.isInterruptionRequested():
+            return
         try:
             text = self._call_api(_qimage_to_jpeg_b64(self._qimage, self._quality)).strip()
+            if self.isInterruptionRequested():
+                return
             if text.lower() in {"", "[no text]", "no text"}:
                 logger.info("ocr_completed model=%s text_length=0", self._model)
                 self.failed.emit("ocr_no_text")
@@ -90,7 +96,7 @@ class _OcrWorker(QThread):
             "max_tokens": 4096,
             "temperature": 0,
         }
-        with httpx.Client(timeout=60) as client:
+        with httpx.Client(timeout=self._timeout_sec) as client:
             response = client.post(
                 f"{self._base_url}/chat/completions", headers=headers, json=payload
             )
@@ -128,6 +134,7 @@ class OcrService(QObject):
             api_key=self._config.api_key,
             model=self._config.ocr_model,
             quality=self._config.ocr_image_quality,
+            timeout_sec=self._config.timeout_sec,
         )
         self._worker.result_ready.connect(self._on_done)
         self._worker.failed.connect(self.error)
@@ -139,8 +146,7 @@ class OcrService(QObject):
         worker = self._worker
         if worker and worker.isRunning():
             worker.requestInterruption()
-            worker.quit()
-            worker.wait(500)
+            worker.wait((self._config.timeout_sec + 1) * 1_000)
 
     def _on_done(self, text: str) -> None:
         self.text_ready.emit(text)

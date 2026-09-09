@@ -51,5 +51,6 @@ def test_qwen_preset_remains_editable(qtbot, tmp_path):
     dialog._provider_activated()
 
     assert dialog._base_url.text() == "http://127.0.0.1:8000/v1"
-    assert dialog._model.text() == "Qwen/Qwen3-TTS"
+    assert dialog._model.text() == "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
+    assert dialog._voice.text() == "Vivian"
     assert dialog._base_url.isEnabled()
