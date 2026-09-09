@@ -17,16 +17,16 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
   pytest base temp; application completed a three-second offscreen smoke launch.
 - Remaining issues: no baseline packaged build or interactive hotkey/audio test.
 
-## Mission 1 — Clean development baseline — IN PROGRESS
+## Mission 1 — Clean development baseline — DONE
 
 - Objective: provide deterministic format, lint, type-check, test, run, and
   Windows build commands without unnecessary dependency churn.
 - Decisions: retain uv and PyInstaller; add focused tooling only where it creates
   an enforceable quality gate.
-- Files modified: `.gitignore`.
-- Tests added: none yet.
-- Validation: pending.
-- Remaining issues: Ruff/type-check configuration and developer commands.
+- Files modified: `.gitignore`, `pyproject.toml`, `uv.lock`, `scripts/check.ps1`.
+- Tests added: none; this mission makes the existing and subsequent tests enforceable.
+- Validation: Ruff formatting and lint pass; mypy passes; pytest passes on Python 3.12.
+- Remaining issues: CI and the packaged Windows build are tracked by Missions 19 and 21.
 
 ## Mission 2 — Internationalization — TODO
 ## Mission 3 — Configuration migration — TODO
@@ -54,8 +54,6 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 
 - Local branch: `main`, preserving upstream history.
 - `upstream`: `https://github.com/archoor/speak-helper`.
-- `origin`: intentionally not created because the user has not supplied the new
-  repository name. Engineering work is not blocked; adding/renaming `origin`
-  remains a single Git operation.
+- `origin`: `https://github.com/rodrigueroland/speak-helper` (GitHub fork).
 - License: upstream MIT license retained; derived-project attribution must remain
   in user and developer documentation.

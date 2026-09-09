@@ -1,9 +1,9 @@
-"""生成 SpeakHelper 应用图标（多分辨率 .ico）。
+"""Generate the multi-resolution Speak Helper Windows icon.
 
-设计：圆角方形蓝→靛渐变底 + 白色喇叭声波，沿用应用内品牌视觉（#3B82F6）。
-用法：在 speak_helper 根目录执行
+The rounded blue-to-indigo tile and white speaker match the in-app icon.
+Run from the repository root:
     uv run python scripts/make_icon.py
-产物：speak_helper/icon.ico、icon_preview.png
+Outputs: icon.ico and icon_preview.png.
 """
 
 from __future__ import annotations
@@ -17,12 +17,12 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "icon.ico"
 PREVIEW = ROOT / "icon_preview.png"
 
-# 品牌渐变：顶部亮蓝 -> 底部靛蓝
-TOP = (74, 144, 255)   # 偏亮的 #4A90FF
-BOT = (61, 90, 241)    # 靛蓝 #3D5AF1
+# Brand gradient from bright blue to indigo.
+TOP = (74, 144, 255)
+BOT = (61, 90, 241)
 WHITE = (255, 255, 255, 255)
 
-# Windows exe / 快捷方式常用尺寸（256 为 ICO 标准上限）
+# Common Windows executable and shortcut sizes.
 ICO_SIZES = [16, 24, 32, 48, 64, 128, 256]
 
 
@@ -31,7 +31,7 @@ def _lerp(a: float, b: float, t: float) -> float:
 
 
 def _build_background(size: int) -> Image.Image:
-    """圆角方形 + 垂直渐变 + 轻微高光。"""
+    """Draw the rounded gradient tile and subtle highlight."""
     grad = Image.new("RGB", (1, size))
     for y in range(size):
         t = y / max(size - 1, 1)
@@ -49,9 +49,7 @@ def _build_background(size: int) -> Image.Image:
     md = ImageDraw.Draw(mask)
     margin = int(size * 0.055)
     radius = int(size * 0.225)
-    md.rounded_rectangle(
-        [margin, margin, size - margin, size - margin], radius=radius, fill=255
-    )
+    md.rounded_rectangle([margin, margin, size - margin, size - margin], radius=radius, fill=255)
 
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     img.paste(grad, (0, 0), mask)
@@ -67,15 +65,13 @@ def _build_background(size: int) -> Image.Image:
     white_layer = Image.new("RGBA", (size, size), (255, 255, 255, 255))
     img = Image.alpha_composite(
         img,
-        Image.composite(
-            white_layer, Image.new("RGBA", (size, size), (0, 0, 0, 0)), hl
-        ),
+        Image.composite(white_layer, Image.new("RGBA", (size, size), (0, 0, 0, 0)), hl),
     )
     return img
 
 
 def _draw_glyph(img: Image.Image, *, small: bool = False) -> None:
-    """白色喇叭 + 两道声波弧，几何取自应用内 SVG（24 单位坐标系）。"""
+    """Draw the speaker and sound-wave glyph from the embedded SVG."""
     size = img.width
     draw = ImageDraw.Draw(img)
 
@@ -109,7 +105,7 @@ def _draw_glyph(img: Image.Image, *, small: bool = False) -> None:
 
 
 def _render_icon(target: int) -> Image.Image:
-    """按目标尺寸渲染；小图标单独超采样，避免缩放发糊。"""
+    """Render one target size with extra supersampling for small icons."""
     small = target <= 32
     ss = target * 8 if small else target * 4
     img = _build_background(ss)
@@ -123,7 +119,7 @@ def _render_icon(target: int) -> Image.Image:
 def main() -> None:
     frames = [_render_icon(s) for s in ICO_SIZES]
 
-    # Pillow 保存 ICO 时必须以最大帧为主图，否则只会写入 16×16
+    # Pillow needs the largest frame as the base image for a multi-size ICO.
     largest = frames[-1]
     largest.save(
         OUT,
@@ -133,8 +129,8 @@ def main() -> None:
     )
 
     frames[-1].save(PREVIEW)
-    print(f"已生成: {OUT} ({OUT.stat().st_size // 1024} KB, {len(ICO_SIZES)} 档尺寸)")
-    print(f"预览图: {PREVIEW}")
+    print(f"Generated: {OUT} ({OUT.stat().st_size // 1024} KB, {len(ICO_SIZES)} sizes)")
+    print(f"Preview: {PREVIEW}")
 
 
 if __name__ == "__main__":
