@@ -26,7 +26,9 @@ jobs:
 
       - name: Install Qt runtime libraries
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install --yes libegl1 libxkbcommon-x11-0
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes
+          libegl1 libpulse0 libxkbcommon-x11-0
 
       - name: Install dependencies
         run: uv sync --extra dev
