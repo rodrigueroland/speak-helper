@@ -451,6 +451,8 @@ class SettingsDialog(QDialog):
             "tts_endpoint",
             "tts_model",
             "audio_state",
+            "audio_output_available",
+            "audio_output_device",
             "cache_path",
             "log_path",
         )
@@ -465,7 +467,9 @@ class SettingsDialog(QDialog):
             "diagnostics.tts_backend",
             "diagnostics.endpoint",
             "diagnostics.model",
-            "diagnostics.audio",
+            "diagnostics.audio_state",
+            "diagnostics.audio_available",
+            "diagnostics.audio_device",
             "diagnostics.cache_path",
             "diagnostics.log_path",
         )
@@ -788,12 +792,16 @@ class SettingsDialog(QDialog):
         for name, label in self._diagnostic_values.items():
             value = getattr(snapshot, name)
             if isinstance(value, bool):
-                false_key = (
-                    "status.unregistered" if name == "hotkey_registered" else "status.disabled"
-                )
-                value = self._translator.text("status.registered" if value else false_key)
+                if name == "hotkey_registered":
+                    value = self._translator.text(
+                        "status.registered" if value else "status.unregistered"
+                    )
+                else:
+                    value = self._translator.text("status.enabled" if value else "status.disabled")
             elif name == "audio_state":
                 value = self._translator.text(f"status.{value}")
+            elif name == "audio_output_device" and not value:
+                value = self._translator.text("status.unavailable")
             label.setText(str(value))
 
     def _copy_diagnostics_text(self) -> None:

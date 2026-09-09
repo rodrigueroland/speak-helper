@@ -85,6 +85,15 @@ class AudioPlayer(QObject):
             return "paused"
         return "speaking" if self._playing else "idle"
 
+    @property
+    def output_available(self) -> bool:
+        return not self._audio_output.device().isNull()
+
+    @property
+    def output_device(self) -> str:
+        device = self._audio_output.device()
+        return device.description() if not device.isNull() else ""
+
     def set_volume(self, volume: float) -> None:
         self._audio_output.setVolume(max(0.0, min(1.0, volume)))
 

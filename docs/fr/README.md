@@ -139,6 +139,8 @@ d'autorisation, ni texte complet du presse-papiers ou de l'OCR.
 - Pour Edge-TTS, vérifiez Internet et choisissez une voix de la liste.
 - Pour un serveur local, vérifiez l'URL et la route `/audio/speech`.
 - Consultez le journal via Diagnostic pour identifier l'étape exacte.
+- Le Diagnostic indique séparément l’état de lecture et le périphérique de sortie
+  audio réellement sélectionné.
 
 ## Développement et compilation
 

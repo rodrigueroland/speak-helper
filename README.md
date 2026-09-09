@@ -160,8 +160,8 @@ server project's own requirements and security guidance.
 
 Open **Settings → Diagnostics** to see the version, OS, language, Read shortcut and
 registration state, clipboard watcher, TTS backend/endpoint/model, audio state,
-cache path, and log path. You can test clipboard content, copy diagnostics, or open
-the log folder.
+audio-device availability and name, cache path, and log path. You can test clipboard
+content, copy diagnostics, or open the log folder.
 
 Logs are rotating JSON Lines records in the user configuration directory. They use
 English event names such as `hotkey_triggered`, `text_captured`, and

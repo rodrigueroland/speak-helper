@@ -97,11 +97,14 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 
 ## Mission 7 — Diagnostics — DONE
 
-- Objective: explain hotkey, clipboard, backend, audio, cache, and log state.
+- Objective: explain hotkey, clipboard, backend, audio device, cache, and log state.
 - Decisions: safe snapshots plus JSON-lines rotating logs; never include credentials
-  or full clipboard/OCR text.
-- Files modified: `diagnostics.py`, `logging_config.py`, Settings and composition.
-- Tests added: safe snapshot/privacy coverage and a one-shot hotkey diagnostic test.
+  or full clipboard/OCR text; distinguish registration, enabled, playback, and
+  physical audio-output states.
+- Files modified: `diagnostics.py`, `logging_config.py`, `audio_player.py`, Settings,
+  localization catalogs, and composition.
+- Tests added: safe snapshot/privacy/device coverage, localized status rendering,
+  and a one-shot hotkey diagnostic test.
 - Validation: structured events captured native conflict and clean shutdown; the
   hotkey test consumes one press without starting a selection capture.
 - Remaining issues: none for the current diagnostic scope.

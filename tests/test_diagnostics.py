@@ -18,7 +18,7 @@ def test_diagnostics_include_runtime_state_without_credentials(tmp_path) -> None
         }
     )
     watcher = SimpleNamespace(active=True)
-    player = SimpleNamespace(state="paused")
+    player = SimpleNamespace(state="paused", output_available=False, output_device="")
 
     snapshot = collect_diagnostics(config, hotkeys, watcher, player, tmp_path / "app.log")
     rendered = format_diagnostics(snapshot)
@@ -27,4 +27,6 @@ def test_diagnostics_include_runtime_state_without_credentials(tmp_path) -> None
     assert snapshot.hotkey_registered
     assert snapshot.tts_endpoint == "http://127.0.0.1:8000/v1"
     assert snapshot.audio_state == "paused"
+    assert not snapshot.audio_output_available
+    assert snapshot.audio_output_device == ""
     assert "never-show-this-secret" not in rendered

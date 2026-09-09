@@ -16,6 +16,7 @@ from speak_helper.ui.theme import stylesheet_for_theme
 
 def test_settings_dialog_retranslates_without_restart(qtbot, tmp_path):
     config = Config(config_dir=tmp_path, locale_name="en_US")
+    config.set("trigger", "clipboard_enabled", True)
     translator = Translator(config)
     registrar = MagicMock()
     registrar.register.return_value = []
@@ -31,11 +32,13 @@ def test_settings_dialog_retranslates_without_restart(qtbot, tmp_path):
 
     assert dialog.windowTitle() == "Settings"
     assert dialog._edge_voice.itemText(0) == "English (United States) · Aria"
+    assert dialog._diagnostic_values["clipboard_watcher_active"].text() == "Enabled"
     translator.set_language("fr")
     assert dialog.windowTitle() == "Paramètres"
     assert dialog._navigation.item(0).text() == "Général"
     assert dialog._edge_voice.itemText(0) == "Anglais (États-Unis) · Aria"
     assert dialog._url_mode.itemText(0) == "Lire l\u2019URL complète"
+    assert dialog._diagnostic_values["clipboard_watcher_active"].text() == "Activé"
 
 
 def test_speech_preprocessing_settings_load_toggle_and_save(qtbot, tmp_path):

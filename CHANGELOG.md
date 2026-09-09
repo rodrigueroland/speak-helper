@@ -14,6 +14,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Conservative Markdown/code/URL preprocessing
 - Localized Speech controls for enabling and configuring text preprocessing
 - Diagnostics panel and structured rotating logs
+- Audio-device availability and selected-output details in Diagnostics
 - Qwen3-TTS local preset through the OpenAI-compatible backend
 - Repeatable Windows selection probe and expanded automated tests
 - Published Qwen3-TTS CustomVoice defaults with automatic English/French hints
@@ -35,6 +36,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Display active non-hotkey diagnostic booleans as Enabled instead of Registered
 - Wait for physical hotkey modifiers to be released before injecting Windows Copy
 - Enforce the configured maximum length for manual, automatic, and OCR speech
 - Avoid retaining a plaintext API-key copy when the OS credential store succeeds

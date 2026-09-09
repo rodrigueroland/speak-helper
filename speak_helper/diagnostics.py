@@ -28,6 +28,8 @@ class DiagnosticsSnapshot:
     tts_endpoint: str
     tts_model: str
     audio_state: str
+    audio_output_available: bool
+    audio_output_device: str
     cache_path: str
     log_path: str
 
@@ -55,6 +57,8 @@ def collect_diagnostics(
         tts_endpoint="Microsoft Edge TTS" if config.backend == "edge" else config.base_url,
         tts_model="Edge voice" if config.backend == "edge" else config.model,
         audio_state=player.state,
+        audio_output_available=player.output_available,
+        audio_output_device=player.output_device,
         cache_path=str(config.cache_dir),
         log_path=str(log_path),
     )
