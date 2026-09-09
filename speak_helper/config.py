@@ -6,6 +6,7 @@ import contextlib
 import copy
 import json
 import locale
+import logging
 import os
 import shutil
 import sys
@@ -26,6 +27,7 @@ SUPPORTED_LANGUAGES = ("en", "fr")
 _KEYRING_SERVICE = "speak_helper"
 _KEYRING_KEY = "api_key"
 _env_dotenv_loaded = False
+logger = logging.getLogger(__name__)
 
 DEFAULT: dict[str, Any] = {
     "config_version": CONFIG_VERSION,
@@ -278,10 +280,18 @@ class Config:
     @api_key.setter
     def api_key(self, value: str) -> None:
         clean_value = value.strip()
-        self.set("tts", "api_key", clean_value)
         if _HAS_KEYRING and clean_value:
-            with contextlib.suppress(Exception):  # pragma: no cover - host keyring
+            try:
                 keyring.set_password(_KEYRING_SERVICE, _KEYRING_KEY, clean_value)
+            except Exception:  # pragma: no cover - host credential backend
+                logger.warning("credential_storage_unavailable")
+            else:
+                self.set("tts", "api_key", "")
+                return
+        elif _HAS_KEYRING:
+            with contextlib.suppress(Exception):  # pragma: no cover - host keyring
+                keyring.delete_password(_KEYRING_SERVICE, _KEYRING_KEY)
+        self.set("tts", "api_key", clean_value)
 
     @property
     def language(self) -> str:

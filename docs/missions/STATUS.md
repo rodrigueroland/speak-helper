@@ -46,9 +46,11 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 
 - Objective: version configuration and preserve existing installations.
 - Decisions: schema version 2; deep merge old files; detect French only on first
-  launch; validate bounded and enumerated values.
+  launch; validate bounded and enumerated values; save API keys in the OS credential
+  store without a duplicate plaintext copy, with a compatible local fallback.
 - Files modified: `speak_helper/config.py`.
-- Tests added: old-file migration, locale defaults, invalid values, persistence.
+- Tests added: old-file migration, locale defaults, invalid values, persistence,
+  secure credential storage, and credential-backend fallback.
 - Validation: migration tests pass; an existing local configuration loaded and saved.
 - Remaining issues: none for schema version 2.
 
@@ -208,7 +210,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 85 total test cases across configuration, localization, hotkeys, clipboard,
+- Tests added: 87 total test cases across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: none for automated service and UI boundaries; named-application

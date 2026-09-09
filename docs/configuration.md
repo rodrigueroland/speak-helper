@@ -23,7 +23,7 @@ French locale, otherwise `en`).
 | `tts.backend` | `edge` | `edge` or `openai` |
 | `tts.edge_voice` | `en-US-AriaNeural` | Edge voice identifier |
 | `tts.base_url` | `http://127.0.0.1:8000/v1` | Compatible API root |
-| `tts.api_key` | empty | Optional bearer token |
+| `tts.api_key` | empty | Plaintext fallback only when the OS keyring fails |
 | `tts.timeout_sec` | `30` | Request timeout |
 | `preprocessing.enabled` | `true` | Enable conservative speech preparation |
 | `preprocessing.strip_markdown_markers` | `true` | Remove structural Markdown markers |
@@ -46,6 +46,12 @@ standard OpenAI speech payload. Custom providers receive only the standard field
 
 Environment variables remain supported as fallbacks when the corresponding value
 was not explicitly saved. Prefer the Settings UI for normal use.
+
+API keys saved from Settings go to the operating-system credential store when it is
+available; `config.json` then retains an empty value. If the credential backend
+rejects the write, Speak Helper preserves compatibility by keeping the value in the
+local configuration and writes the English event `credential_storage_unavailable`.
+Saving a legacy plaintext key from Settings migrates it through the same path.
 
 ## Text processing
 

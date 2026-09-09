@@ -1,6 +1,7 @@
 """Configuration defaults, validation, and migration tests."""
 
 import json
+from unittest.mock import MagicMock
 
 from speak_helper.config import CONFIG_VERSION, Config, detect_system_language
 
@@ -68,3 +69,36 @@ def test_explicit_environment_config_directory(monkeypatch, tmp_path) -> None:
 
     assert config.path == tmp_path / "config.json"
     assert config.path.exists()
+
+
+def test_api_key_uses_system_keyring_without_plaintext_copy(monkeypatch, tmp_path) -> None:
+    import speak_helper.config as config_module
+
+    credential_store = MagicMock()
+    credential_store.get_password.return_value = "secret-value"
+    monkeypatch.setattr(config_module, "_HAS_KEYRING", True)
+    monkeypatch.setattr(config_module, "keyring", credential_store)
+    config = Config(tmp_path, locale_name="en_US")
+
+    config.api_key = "secret-value"
+    config.save()
+    saved = json.loads(config.path.read_text(encoding="utf-8"))
+
+    credential_store.set_password.assert_called_once_with("speak_helper", "api_key", "secret-value")
+    assert saved["tts"]["api_key"] == ""
+    assert config.api_key == "secret-value"
+
+
+def test_api_key_falls_back_to_config_when_keyring_fails(monkeypatch, tmp_path) -> None:
+    import speak_helper.config as config_module
+
+    credential_store = MagicMock()
+    credential_store.set_password.side_effect = RuntimeError("unavailable")
+    monkeypatch.setattr(config_module, "_HAS_KEYRING", True)
+    monkeypatch.setattr(config_module, "keyring", credential_store)
+    config = Config(tmp_path, locale_name="en_US")
+
+    config.api_key = "fallback-value"
+
+    assert config.get("tts", "api_key") == "fallback-value"
+    assert config.api_key == "fallback-value"
