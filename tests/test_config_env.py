@@ -1,13 +1,13 @@
 """Config .env fallback — model vars optional when set in Settings."""
-import json
 
-import pytest
+import json
 
 from speak_helper.config import DEFAULT, Config
 
 
 def _make_config(tmp_path, cfg_file, monkeypatch):
     import speak_helper.config as cfg_mod
+
     monkeypatch.setattr(cfg_mod, "_env_dotenv_loaded", True)
 
     class _Cfg(Config):
