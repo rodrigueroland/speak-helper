@@ -45,6 +45,10 @@ uv sync --extra dev
 uv run python -m speak_helper
 ```
 
+PyCharm users can select the shared **Speak Helper** run configuration. Existing
+IDE configurations that still target the root `main.py` remain supported by the
+compatibility launcher.
+
 Run every local quality gate:
 
 ```powershell

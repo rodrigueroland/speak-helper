@@ -1,6 +1,6 @@
 # Mission status
 
-Last updated: 2026-09-09
+Last updated: 2026-09-10
 
 This file is the persistent engineering handoff for the Speak Helper fork.
 Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
@@ -23,8 +23,10 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
   Windows build commands without unnecessary dependency churn.
 - Decisions: retain uv and PyInstaller; add focused tooling only where it creates
   an enforceable quality gate.
-- Files modified: `.gitignore`, `pyproject.toml`, `uv.lock`, `scripts/check.ps1`.
-- Tests added: none; this mission makes the existing and subsequent tests enforceable.
+- Files modified: `.gitignore`, `pyproject.toml`, `uv.lock`, `scripts/check.ps1`,
+  root compatibility `main.py`, and `.run/Speak Helper.run.xml`.
+- Tests added: root launcher delegation; this mission also makes the existing and
+  subsequent tests enforceable.
 - Validation: Ruff formatting and lint pass; mypy passes; pytest passes on Python 3.12.
 - Remaining issues: CI and the packaged Windows build are tracked by Missions 19 and 21.
 
@@ -196,7 +198,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 71 total test cases across configuration, localization, hotkeys, clipboard,
+- Tests added: 72 total test cases across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: none for automated service and UI boundaries; named-application
