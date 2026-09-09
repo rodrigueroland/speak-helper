@@ -15,6 +15,7 @@ release commit and packaged artifact.
 - [x] Windows native selection probe, 10/10 consecutive captures
 - [x] GitHub Actions green on Linux and Windows, Python 3.11 and 3.13
 - [x] CI preserves the standalone Windows folder as a downloadable artifact
+  (run 34409416553, commit `0505f8d`)
 
 ## Application behavior
 

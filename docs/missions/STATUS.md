@@ -245,8 +245,8 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
   folder as a downloadable workflow artifact.
 - Files modified: `.github/workflows/ci.yml`.
 - Tests added: packaged bounded launch in the Windows job.
-- Validation: hosted run 34409056995 passed all four Linux/Windows quality jobs
-  and the Windows packaged executable smoke job on commit `2e34ad3`.
+- Validation: hosted run 34409416553 passed all four Linux/Windows quality jobs,
+  the packaged executable smoke job, and artifact upload on commit `0505f8d`.
 - Remaining issues: none for the current workflow scope.
 
 ## Mission 22 — Release readiness — BLOCKED
@@ -256,8 +256,8 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
   packaged validation.
 - Files modified: `docs/development/release_checklist.md`.
 - Tests added: none beyond prior missions.
-- Validation: quality gates, live Edge synthesis/playback, build, and packaged
-  smoke pass on Windows 11.
+- Validation: quality gates, live Edge synthesis/playback, build, packaged smoke,
+  and the downloadable 72.7 MB Windows artifact pass on Windows 11/hosted CI.
 - Remaining issues: interactive PyCharm/application matrix, live GPU-backed Qwen
   server, fresh-profile and signing/antivirus review. Version/tag/release publication
   intentionally waits for these acceptance gates.
