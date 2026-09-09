@@ -15,22 +15,31 @@ from speak_helper.hotkey_service import ACTION_READ, HotkeyService
 from speak_helper.selection_capture import SelectionCaptureService
 
 ITERATIONS = 10
+_PROBE_KEYS = (0x11, 0x12, 0x10, 0x87)  # Control, Alt, Shift, F24
 
 
-def _press_probe_hotkey() -> None:
+def _send_probe_keys(keys: tuple[int, ...], *, release: bool = False) -> None:
     from speak_helper.selection_capture import _INPUT, _KEYBDINPUT
 
     input_keyboard = 1
     key_up = 0x0002
-    keys = (0x11, 0x12, 0x10, 0x87)  # Control, Alt, Shift, F24
-    events = [_INPUT(type=input_keyboard, ki=_KEYBDINPUT(wVk=key)) for key in keys] + [
-        _INPUT(type=input_keyboard, ki=_KEYBDINPUT(wVk=key, dwFlags=key_up))
-        for key in reversed(keys)
+    events = [
+        _INPUT(
+            type=input_keyboard,
+            ki=_KEYBDINPUT(wVk=key, dwFlags=key_up if release else 0),
+        )
+        for key in keys
     ]
     batch = (_INPUT * len(events))(*events)
     sent = ctypes.windll.user32.SendInput(len(batch), batch, ctypes.sizeof(_INPUT))
     if sent != len(batch):
         raise RuntimeError(f"SendInput inserted {sent} of {len(batch)} events")
+
+
+def _press_probe_hotkey() -> None:
+    _send_probe_keys(_PROBE_KEYS)
+    # Hold the chord long enough to exercise native modifier-release detection.
+    QTimer.singleShot(80, lambda: _send_probe_keys(tuple(reversed(_PROBE_KEYS)), release=True))
 
 
 def main() -> int:
@@ -39,11 +48,14 @@ def main() -> int:
         return 2
 
     application = QApplication(sys.argv)
+    capture_only = "--capture-only" in sys.argv
     editor = QPlainTextEdit()
     editor.setWindowTitle("Speak Helper selection probe")
     editor.resize(600, 180)
     expected = [f"Selection probe {index}: français — Unicode ✓" for index in range(ITERATIONS)]
     captured: list[str] = []
+    hotkey_triggers = 0
+    capture_starts = 0
     exit_code = 1
 
     with tempfile.TemporaryDirectory(prefix="speak-helper-probe-") as temporary:
@@ -54,7 +66,18 @@ def main() -> int:
         config.set("trigger", "replay_hotkey", "ctrl+alt+shift+f23")
         capture = SelectionCaptureService(config)
         hotkeys = HotkeyService(config)
-        hotkeys.read_requested.connect(capture.capture)
+
+        def on_hotkey() -> None:
+            nonlocal hotkey_triggers
+            hotkey_triggers += 1
+            capture.capture()
+
+        def on_capture_started() -> None:
+            nonlocal capture_starts
+            capture_starts += 1
+
+        hotkeys.read_requested.connect(on_hotkey)
+        capture.capture_started.connect(on_capture_started)
 
         def select_iteration(index: int) -> None:
             editor.setPlainText(expected[index])
@@ -62,7 +85,15 @@ def main() -> int:
             editor.setFocus()
             editor.activateWindow()
             editor.raise_()
-            QTimer.singleShot(120, _press_probe_hotkey)
+            if capture_only:
+                QTimer.singleShot(120, lambda: _send_probe_keys(_PROBE_KEYS[:-1]))
+                QTimer.singleShot(140, capture.capture)
+                QTimer.singleShot(
+                    220,
+                    lambda: _send_probe_keys(tuple(reversed(_PROBE_KEYS[:-1])), release=True),
+                )
+            else:
+                QTimer.singleShot(120, _press_probe_hotkey)
 
         def on_text(text: str) -> None:
             captured.append(text)
@@ -95,7 +126,11 @@ def main() -> int:
         capture.cancel()
         hotkeys.stop()
 
-    print(f"Captured {len(captured)}/{ITERATIONS} selections correctly.")
+    print(
+        f"Mode {'capture-only' if capture_only else 'hotkey'}; hotkeys "
+        f"{hotkey_triggers}/{ITERATIONS}; captures started "
+        f"{capture_starts}/{ITERATIONS}; text captured {len(captured)}/{ITERATIONS}."
+    )
     return exit_code
 
 

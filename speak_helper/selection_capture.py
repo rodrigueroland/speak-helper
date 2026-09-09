@@ -124,8 +124,13 @@ class WindowsCopyInjector:
     INPUT_KEYBOARD = 1
     KEYEVENTF_KEYUP = 0x0002
     VK_CONTROL = 0x11
+    VK_MENU = 0x12
+    VK_SHIFT = 0x10
+    VK_LWIN = 0x5B
+    VK_RWIN = 0x5C
     VK_C = 0x43
     _send_input: Any
+    _get_async_key_state: Any
 
     def __init__(self) -> None:
         if sys.platform != "win32":
@@ -133,6 +138,22 @@ class WindowsCopyInjector:
         self._send_input = ctypes.windll.user32.SendInput
         self._send_input.argtypes = (ctypes.c_uint, ctypes.POINTER(_INPUT), ctypes.c_int)
         self._send_input.restype = ctypes.c_uint
+        self._get_async_key_state = ctypes.windll.user32.GetAsyncKeyState
+        self._get_async_key_state.argtypes = (ctypes.c_int,)
+        self._get_async_key_state.restype = ctypes.c_short
+
+    def modifiers_released(self) -> bool:
+        """Return true only after physical hotkey modifiers are no longer held."""
+        return all(
+            not (int(self._get_async_key_state(key)) & 0x8000)
+            for key in (
+                self.VK_CONTROL,
+                self.VK_MENU,
+                self.VK_SHIFT,
+                self.VK_LWIN,
+                self.VK_RWIN,
+            )
+        )
 
     def copy(self) -> bool:
         inputs = (_INPUT * 4)(
@@ -198,6 +219,7 @@ class SelectionCaptureService(QObject):
         self._change_seen = False
         self._initial_sequence = 0
         self._started_at = 0.0
+        self._release_wait_started = 0.0
         self._snapshot = ClipboardSnapshot(())
 
     @property
@@ -221,12 +243,37 @@ class SelectionCaptureService(QObject):
         self._initial_sequence = initial_sequence
         logger.info("selection_capture_started sequence=%d", self._initial_sequence)
         self.capture_started.emit()
-        # Let the global-hotkey keys return to their physical state before Ctrl+C.
-        QTimer.singleShot(75, self._send_copy)
+        self._release_wait_started = self._clock()
+        self._wait_for_modifier_release()
 
     def cancel(self) -> None:
         if self._active:
             self._restore_and_finish()
+
+    def _wait_for_modifier_release(self) -> None:
+        if not self._active:
+            return
+        release_check = getattr(self._injector, "modifiers_released", None)
+        if not callable(release_check):
+            # Non-Windows fallbacks cannot query physical key state.
+            QTimer.singleShot(75, self._send_copy)
+            return
+        try:
+            released = bool(release_check())
+        except Exception:
+            logger.exception("modifier_state_check_failed")
+            QTimer.singleShot(75, self._send_copy)
+            return
+        if released:
+            self._send_copy()
+            return
+        elapsed_ms = (self._clock() - self._release_wait_started) * 1_000
+        if elapsed_ms >= self._config.capture_timeout_ms:
+            logger.warning("selection_capture_modifier_release_timeout")
+            self.error.emit("modifier_release_timeout")
+            self._restore_and_finish()
+            return
+        QTimer.singleShot(self._config.clipboard_poll_interval_ms, self._wait_for_modifier_release)
 
     def _send_copy(self) -> None:
         if not self._active:

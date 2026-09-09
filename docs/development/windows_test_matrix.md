@@ -1,6 +1,6 @@
 # Windows validation matrix
 
-Last updated: 2026-09-09
+Last updated: 2026-09-10
 
 Use this matrix for both development builds and packaged releases. Record facts,
 not assumptions. A passing service-level probe does not replace the application
@@ -24,6 +24,7 @@ tests below.
 | Native hotkey registration and cleanup | PASS | Uncommon probe chord registered with `RegisterHotKey`, then unregistered |
 | Hotkey conflict reporting | PASS | Default chord returned Windows error 1409 and emitted a structured error event |
 | Available shortcut suggestion | PASS | Native probe skipped occupied `Ctrl+Alt+R` and selected `Ctrl+Alt+Space` |
+| Held shortcut modifiers | UNIT PASS | Copy waits on native key state; timeout and release transitions covered |
 | Repeated selection capture | PASS | `scripts/windows_selection_probe.py`: 10/10 consecutive cycles |
 | Unicode and French accents | PASS | Probe captured `français — Unicode ✓` exactly |
 | Clipboard restoration | PASS | Unit tests cover text restoration; the 10-cycle probe ran with restoration enabled |
@@ -36,6 +37,12 @@ tests below.
 | English Settings layout | PASS | Native Windows render inspected at 860 x 700 |
 | French Settings layout | PASS | Native Windows render inspected at 860 x 700 |
 | Settings scaling | PASS | Every EN/FR light/dark page passes at 100% and 150% Qt scaling |
+
+The 2026-09-10 rerun was correctly inconclusive because the foreground surface was
+Windows `LockApp`: `SendInput` was rejected and no synthetic hotkey could reach the
+application. The probe now reports hotkey triggers, capture starts, and captured text
+separately, and supports `--capture-only` to isolate the Copy transaction. Rerun both
+modes only in an unlocked interactive desktop session.
 
 ## Application matrix
 

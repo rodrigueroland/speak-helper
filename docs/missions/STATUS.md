@@ -71,11 +71,13 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 
 - Objective: transact Copy/capture/restore reliably without fixed clipboard sleeps.
 - Decisions: use the Windows clipboard sequence number, preserve all Qt MIME
-  formats, start the full polling deadline only after Copy injection, retry
-  temporarily locked providers, and suppress self-generated watcher events.
+  formats, wait for physical shortcut modifiers to be released before Copy, start
+  the full polling deadline only after injection, retry temporarily locked providers,
+  and suppress self-generated watcher events.
 - Files modified: `speak_helper/selection_capture.py`, `clipboard_watcher.py`, `main.py`.
-- Tests added: same-text capture, timeout, Copy failure/exception, snapshot failure,
-  delayed provider retry, successful restoration, and restoration failure cleanup.
+- Tests added: same-text capture, timeout, held-modifier release/timeout, Copy
+  failure/exception, snapshot failure, delayed provider retry, successful restoration,
+  and restoration failure cleanup.
 - Validation: Windows probe passed 10/10 consecutive Unicode selection cycles.
 - Remaining issues: run the PyCharm/browser/Word/PDF packaged-app matrix.
 
@@ -212,7 +214,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 88 total test cases across configuration, localization, hotkeys, clipboard,
+- Tests added: 91 total test cases across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: none for automated service and UI boundaries; named-application
@@ -227,8 +229,9 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Tests added: 10-cycle native hotkey/clipboard integration probe.
 - Validation: 10/10 synthetic editor captures; Edge synthesis/playback live checks.
 - Remaining issues: PyCharm/Codex and other named applications were not available
-  through the UI automation surface (`apps=[]`, `browsers=[]`); packaged matrix
-  remains NOT RUN and requires an interactive Windows session.
+  through the UI automation surface (`apps=[]`, `browsers=[]`). The latest probe
+  rerun found Windows `LockApp` in the foreground, which rejects `SendInput`;
+  packaged matrix remains NOT RUN and requires an unlocked interactive session.
 
 ## Mission 19 — Packaging — DONE
 

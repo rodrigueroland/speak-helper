@@ -1,7 +1,11 @@
 """Selected-text capture transaction tests."""
 
 from speak_helper.config import Config
-from speak_helper.selection_capture import ClipboardSnapshot, SelectionCaptureService
+from speak_helper.selection_capture import (
+    ClipboardSnapshot,
+    SelectionCaptureService,
+    WindowsCopyInjector,
+)
 
 
 class FakeClipboard:
@@ -48,6 +52,25 @@ class RaisingInjector:
 class RaisingSnapshotClipboard(FakeClipboard):
     def snapshot(self) -> ClipboardSnapshot:
         raise RuntimeError("clipboard unavailable")
+
+
+class ModifierAwareInjector(FakeInjector):
+    def __init__(self) -> None:
+        super().__init__()
+        self.released = False
+
+    def modifiers_released(self) -> bool:
+        return self.released
+
+
+def test_windows_copy_injector_detects_held_modifiers() -> None:
+    injector = WindowsCopyInjector.__new__(WindowsCopyInjector)
+    states: dict[int, int] = {}
+    injector._get_async_key_state = lambda key: states.get(key, 0)
+
+    assert injector.modifiers_released()
+    states[injector.VK_MENU] = -32768
+    assert not injector.modifiers_released()
 
 
 def test_capture_accepts_repeated_text_and_restores_clipboard(qtbot, tmp_path) -> None:
@@ -162,3 +185,38 @@ def test_restore_failure_is_reported_without_leaving_capture_active(qtbot, tmp_p
     qtbot.waitUntil(lambda: not service.active, timeout=1_000)
 
     assert errors == ["restore_failed"]
+
+
+def test_capture_waits_for_physical_hotkey_release(qtbot, tmp_path) -> None:
+    config = Config(tmp_path, locale_name="en_US")
+    injector = ModifierAwareInjector()
+    service = SelectionCaptureService(config, clipboard=FakeClipboard(), injector=injector)
+
+    service.capture()
+    qtbot.wait(50)
+    assert injector.calls == 0
+
+    injector.released = True
+    qtbot.waitUntil(lambda: injector.calls == 1, timeout=1_000)
+
+
+def test_modifier_release_timeout_finishes_without_copy(qtbot, tmp_path) -> None:
+    config = Config(tmp_path, locale_name="en_US")
+    injector = ModifierAwareInjector()
+    now = [0.0]
+    service = SelectionCaptureService(
+        config,
+        clipboard=FakeClipboard(),
+        injector=injector,
+        clock=lambda: now[0],
+    )
+    errors: list[str] = []
+    service.error.connect(errors.append)
+
+    service.capture()
+    now[0] = 2.0
+    service._wait_for_modifier_release()
+    qtbot.waitUntil(lambda: not service.active, timeout=1_000)
+
+    assert injector.calls == 0
+    assert errors == ["modifier_release_timeout"]

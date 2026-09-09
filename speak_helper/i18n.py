@@ -34,6 +34,7 @@ EN: dict[str, str] = {
     "backend.qwen_local": "Qwen3-TTS Local",
     "clipboard.capture_busy": "A selection capture is already in progress.",
     "clipboard.capture_failed": "Could not copy selected text.",
+    "clipboard.modifier_release_timeout": "Release the shortcut keys, then try again.",
     "clipboard.capture_timeout": "No selected text was copied before the timeout.",
     "clipboard.empty": "The clipboard does not contain text.",
     "clipboard.restore": "Restore the previous clipboard after capture",
@@ -186,6 +187,7 @@ FR: dict[str, str] = {
     "backend.qwen_local": "Qwen3-TTS local",
     "clipboard.capture_busy": "Une capture de sélection est déjà en cours.",
     "clipboard.capture_failed": "Impossible de copier le texte sélectionné.",
+    "clipboard.modifier_release_timeout": "Relâchez les touches du raccourci, puis réessayez.",
     "clipboard.capture_timeout": (
         "Aucun texte sélectionné n’a été copié avant l’expiration du délai."
     ),
