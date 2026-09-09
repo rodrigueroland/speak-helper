@@ -10,7 +10,6 @@ from PySide6.QtWidgets import QMenu, QSystemTrayIcon
 from ..assets import ICON_ERROR, ICON_IDLE, ICON_PAUSED, ICON_SPEAKING
 from ..config import Config
 from ..i18n import Translator
-from .theme import application_stylesheet
 
 
 def _make_icon(svg: str, size: int = 22) -> QIcon:
@@ -50,7 +49,6 @@ class TrayIcon(QObject):
         }
         self._tray = QSystemTrayIcon(self._icons["idle"], self)
         self._menu = QMenu()
-        self._menu.setStyleSheet(application_stylesheet())
         self._build_menu()
         self._tray.setContextMenu(self._menu)
         self._tray.activated.connect(self._on_activated)

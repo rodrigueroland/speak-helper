@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import cast
+
+from PySide6.QtGui import QGuiApplication, QPalette
 
 
 @dataclass(frozen=True, slots=True)
@@ -18,6 +21,7 @@ class Palette:
     error: str
     success: str
     focus: str
+    selection: str
 
 
 LIGHT = Palette(
@@ -32,7 +36,36 @@ LIGHT = Palette(
     error="#B42318",
     success="#067647",
     focus="#2563EB",
+    selection="#EAF1FF",
 )
+
+DARK = Palette(
+    surface="#111827",
+    surface_subtle="#1F2937",
+    text="#F3F4F6",
+    text_muted="#A8B1C0",
+    border="#4B5563",
+    accent="#60A5FA",
+    accent_hover="#3B82F6",
+    accent_text="#0B1220",
+    error="#FDA29B",
+    success="#6CE9A6",
+    focus="#60A5FA",
+    selection="#243B5A",
+)
+
+
+def palette_for_theme(theme: str, application: QGuiApplication | None = None) -> Palette:
+    if theme == "dark":
+        return DARK
+    if theme == "light":
+        return LIGHT
+    selected_application = application or cast(QGuiApplication | None, QGuiApplication.instance())
+    if selected_application is not None:
+        window = selected_application.palette().color(QPalette.ColorRole.Window)
+        if window.lightness() < 128:
+            return DARK
+    return LIGHT
 
 
 def application_stylesheet(palette: Palette = LIGHT) -> str:
@@ -77,17 +110,23 @@ def application_stylesheet(palette: Palette = LIGHT) -> str:
             padding: 8px;
         }}
         QListWidget::item {{ padding: 9px 12px; border-radius: 5px; }}
-        QListWidget::item:selected {{ color: {palette.accent}; background: #EAF1FF; }}
+        QListWidget::item:selected {{ color: {palette.accent}; background: {palette.selection}; }}
         QMenu {{
             background: {palette.surface};
             border: 1px solid {palette.border};
             padding: 5px;
         }}
         QMenu::item {{ padding: 7px 22px; border-radius: 4px; }}
-        QMenu::item:selected {{ color: {palette.accent}; background: #EAF1FF; }}
+        QMenu::item:selected {{ color: {palette.accent}; background: {palette.selection}; }}
+        QLabel[result="success"] {{ color: {palette.success}; font-weight: 600; }}
+        QLabel[result="error"] {{ color: {palette.error}; font-weight: 600; }}
         QToolTip {{
             color: {palette.text};
             background: {palette.surface};
             border: 1px solid {palette.border};
         }}
     """
+
+
+def stylesheet_for_theme(theme: str, application: QGuiApplication | None = None) -> str:
+    return application_stylesheet(palette_for_theme(theme, application))

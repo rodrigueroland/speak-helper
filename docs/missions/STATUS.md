@@ -154,11 +154,12 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 
 - Objective: responsive, accessible, localized sections with separated service logic.
 - Decisions: navigation plus stacked scrollable pages, semantic theme tokens, no
-  fixed content positioning, keyboard focus borders.
-- Files modified: `ui/settings_dialog.py`, `ui/theme.py`.
-- Tests added: runtime language switch smoke test.
+  fixed content positioning, keyboard focus borders, and application-wide
+  light/dark/system theme resolution.
+- Files modified: `ui/settings_dialog.py`, `ui/theme.py`, application composition.
+- Tests added: runtime language switch and deterministic theme stylesheet tests.
 - Validation: English and French native Windows renders inspected at 860 x 700.
-- Remaining issues: inspect every page at minimum size and high DPI.
+- Remaining issues: inspect every page and dark mode at minimum size and high DPI.
 
 ## Mission 15 — System tray — DONE
 
@@ -187,7 +188,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 52 total tests across configuration, localization, hotkeys, clipboard,
+- Tests added: 54 total tests across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: OCR, diagnostics, HTTP status, and more UI coverage.

@@ -26,6 +26,7 @@ from .text_normalizer import NormalizationOptions, normalize_for_speech
 from .ui.floating_dock import FloatingDock
 from .ui.prompt_bubble import PromptBubble
 from .ui.settings_dialog import SettingsDialog
+from .ui.theme import stylesheet_for_theme
 from .ui.tray_icon import TrayIcon
 
 logger = logging.getLogger(__name__)
@@ -81,6 +82,7 @@ class SpeakHelperApp:
         self._last_text = ""
         self._pending_image: QImage | None = None
         self._config = Config()
+        self._application.setStyleSheet(stylesheet_for_theme(self._config.theme, self._application))
         self._log_path = configure_logging(self._config.log_dir)
         self._translator = Translator(self._config)
         self._speech = SpeechService(self._config)
@@ -307,6 +309,7 @@ class SpeakHelperApp:
 
     def _on_settings_saved(self) -> None:
         self._config.reload()
+        self._application.setStyleSheet(stylesheet_for_theme(self._config.theme, self._application))
         self._translator.set_language(self._config.language, persist=False)
         self._apply_clipboard_mode()
         self._hotkeys.start()

@@ -40,7 +40,6 @@ from ..diagnostics import collect_diagnostics, format_diagnostics
 from ..error_messages import localize_speech_error
 from ..hotkey_service import ACTION_READ, HotkeyService
 from ..i18n import Translator
-from .theme import LIGHT, application_stylesheet
 
 EDGE_VOICES = (
     ("voice.en_us_aria", "en-US-AriaNeural"),
@@ -157,7 +156,6 @@ class SettingsDialog(QDialog):
         self._test_worker: _TtsTestWorker | None = None
         self.setMinimumSize(780, 640)
         self.resize(860, 700)
-        self.setStyleSheet(application_stylesheet())
         self._build_ui()
         self._load_values()
         self._hotkeys.test_triggered.connect(self._hotkey_test_completed)
@@ -649,9 +647,9 @@ class SettingsDialog(QDialog):
         self._test_result.setText(
             self._translator.text(key, duration_ms=duration_ms, reason=user_reason)
         )
-        self._test_result.setStyleSheet(
-            f"color:{LIGHT.success if success else LIGHT.error};font-weight:600;"
-        )
+        self._test_result.setProperty("result", "success" if success else "error")
+        self._test_result.style().unpolish(self._test_result)
+        self._test_result.style().polish(self._test_result)
 
     def _refresh_cache_usage(self) -> None:
         total = sum(
