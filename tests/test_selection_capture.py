@@ -42,7 +42,7 @@ def test_capture_accepts_repeated_text_and_restores_clipboard(qtbot, tmp_path) -
     service.text_ready.connect(received.append)
 
     service.capture()
-    service._send_copy()
+    qtbot.waitUntil(lambda: injector.calls == 1, timeout=1_000)
     clipboard.sequence += 1
     service._poll()
     qtbot.waitUntil(lambda: not service.active, timeout=1_000)
@@ -60,7 +60,6 @@ def test_capture_reports_injection_failure(qtbot, tmp_path) -> None:
 
     with qtbot.waitSignal(service.error, timeout=1_000) as signal:
         service.capture()
-        service._send_copy()
 
     assert signal.args == ["capture_failed"]
 
@@ -68,15 +67,16 @@ def test_capture_reports_injection_failure(qtbot, tmp_path) -> None:
 def test_capture_timeout_restores_clipboard(qtbot, tmp_path) -> None:
     config = Config(tmp_path, locale_name="en_US")
     clipboard = FakeClipboard()
+    injector = FakeInjector()
     now = [0.0]
     service = SelectionCaptureService(
-        config, clipboard=clipboard, injector=FakeInjector(), clock=lambda: now[0]
+        config, clipboard=clipboard, injector=injector, clock=lambda: now[0]
     )
     errors: list[str] = []
     service.error.connect(errors.append)
 
     service.capture()
-    service._send_copy()
+    qtbot.waitUntil(lambda: injector.calls == 1, timeout=1_000)
     now[0] = 2.0
     service._poll()
     qtbot.waitUntil(lambda: not service.active, timeout=1_000)
