@@ -1,101 +1,66 @@
 # Architecture
 
-[English](architecture.md) · [中文](../zh/architecture.md)
+`SpeakHelperApp` is the composition root. It creates services and connects Qt
+signals; individual widgets do not own hotkey, clipboard, HTTP, or playback policy.
 
-High-level design of the **Speak Helper** TTS desktop application (PySide6 / Qt).
-
-## Module map
-
-```
-speak_helper/
-├── main.py              SpeakHelperApp — signal wiring, lifecycle
-├── config.py            JSON + keyring configuration
-├── text_filter.py       Debounce, dedup, length limits
-├── clipboard_watcher.py   QClipboard monitoring (text + image)
-├── hotkey_service.py      Global hotkey → simulate copy → text
-├── speech_service.py      Sentence split, TTS pipeline (edge / openai)
-├── ocr_service.py         Vision API for clipboard images
-├── audio_player.py        Queue playback (QMediaPlayer)
-└── ui/
-    ├── floating_dock.py   Edge dock widget + state icons
-    ├── prompt_bubble.py   Ask-mode confirmation UI
-    ├── tray_icon.py       System tray menu
-    └── settings_dialog.py Settings tabs
-```
-
-## Data flow
-
-### Clipboard text → speech
-
-```
-ClipboardWatcher.text_changed
-    → TextFilter (debounce, min/max, dedup)
-    → mode == ask ? PromptBubble : SpeechService.speak()
-    → split_sentences → chunks
-    → _PipelineWorker (per-chunk TTS)
-    → chunk_ready → AudioPlayer.enqueue (streaming)
-    → playback_finished → UI idle
+```text
+Windows RegisterHotKey / pynput fallback
+                |
+                v
+      SelectionCaptureService ---- ClipboardWatcher
+                |                         |
+                +----------+--------------+
+                           v
+               conservative normalization
+                           |
+                           v
+                    SpeechService
+                  /               \
+             Edge-TTS       OpenAI-compatible HTTP
+                  \               /
+                           v
+                     AudioPlayer
+                           |
+                      tray + dock
 ```
 
-### Hotkey → speech
+## Main boundaries
 
-```
-HotkeyService (pynput)
-    → simulate Ctrl+C
-    → read clipboard text
-    → SpeechService.speak()   (bypasses ask/auto mode)
-```
+- `config.py`: versioned JSON configuration, locale defaulting, validation, and
+  backward-compatible deep merge.
+- `i18n.py`: observable centralized English/French catalogs.
+- `hotkey_service.py`: parsing and registrar interface; native Windows
+  `RegisterHotKey` and cross-platform `pynput` fallback.
+- `selection_capture.py`: clipboard transaction and platform Copy injection.
+- `clipboard_watcher.py`: optional user clipboard monitoring, suppressible during
+  internal capture operations.
+- `text_normalizer.py`: independently testable, conservative speech preprocessing.
+- `speech_service.py`: chunking, caching, backend calls, cancellation generations.
+- `audio_player.py`: sequential Qt Multimedia playback and state transitions.
+- `diagnostics.py` and `logging_config.py`: safe diagnostics and rotating JSON Lines.
+- `ocr_service.py`: optional isolated vision request; disabled by default.
+- `ui/`: presentation widgets and semantic style tokens.
 
-### Clipboard image → OCR → speech
+## Thread model
 
-```
-ClipboardWatcher.image_changed
-    → PromptBubble (ask) or OcrService directly (auto)
-    → OcrService (vision API, JPEG upload)
-    → text_ready → SpeechService.speak()
-```
+Qt widgets, native hotkey filtering, clipboard reads, and orchestration live on the
+main Qt thread. TTS and OCR requests run in owned worker threads and return via Qt
+signals. A new speech request increments a generation and cancels old workers, so
+late responses cannot enter the current playback queue. Shutdown cancels workers,
+waits for outstanding network calls, stops media, unregisters hotkeys, and releases
+the Windows mutex.
 
-## TTS pipeline
+## Windows selection transaction
 
-| Step | Component | Notes |
-|------|-----------|-------|
-| Split | `split_sentences()` | Chinese / English punctuation |
-| Chunk | `make_chunks(n)` | `sentences_per_chunk` config |
-| Fetch | `_ChunkWorker` | `edge` → `edge-tts`; `openai` → httpx POST |
-| Cache | SHA1 key in `cache_dir` | Evict by total MB |
-| Play | `AudioPlayer` | Sequential queue per speak session |
-
-## Threading model
-
-- **Main thread**: Qt UI, signals/slots
-- **Hotkey thread**: `pynput` listener
-- **TTS thread**: `QThread` + `_PipelineWorker` (sequential chunk fetch)
-- **Edge TTS**: `asyncio.run` inside worker thread per chunk
-
-## Configuration lifecycle
-
-1. `Config()` loads `DEFAULT` merged with `config.json`
-2. Settings dialog writes values + `api_key` setter
-3. `reload()` after save; `HotkeyService` restarted if hotkey changed
-
-## Single instance (Windows)
-
-`CreateMutexW("Global\\SpeakHelper_SingleInstance_Mutex")` in `main.py` before app loop.
-
-## External dependencies
-
-| Package | Role |
-|---------|------|
-| PySide6 | GUI, clipboard, media playback |
-| httpx | OpenAI-compatible TTS + OCR HTTP |
-| edge-tts | Microsoft neural TTS |
-| pynput | Global hotkey, key simulation |
-| keyring | API key storage |
-| platformdirs | Cross-platform config paths |
-| Pillow | Image encoding for OCR |
+`RegisterHotKey` posts `WM_HOTKEY` into the Qt message loop. The service queues an
+action signal on the Qt thread. Selection capture snapshots all MIME formats, notes
+`GetClipboardSequenceNumber`, injects one `SendInput` Ctrl+C batch, and polls for a
+new sequence until text appears or the configured deadline expires. Restoration is
+performed while the normal clipboard watcher is suppressed.
 
 ## Extension points
 
-- New TTS backend: add branch in `_ChunkWorker._fetch()` and Settings UI
-- New trigger: emit text into `TextFilter.feed` or `SpeechService.speak`
-- Replace OCR: adjust `OcrService` prompt and API payload
+Keep new backends behind the synthesis service and model them as configuration
+presets when they share the OpenAI-compatible contract. Keep platform-specific
+hotkeys and Copy injection behind their existing protocols. Add all visible text to
+both translation catalogs; logs remain English.

@@ -16,6 +16,9 @@ If you discover a security issue (e.g. API key handling, path traversal in cache
 
 ## API keys and data
 
-- Speak Helper sends text to **your configured TTS/OCR endpoints** only.
+- Speak Helper sends text to **your configured TTS/OCR endpoints** only. Edge-TTS
+  uses Microsoft's online speech service.
 - Store API keys in the OS keyring when possible; avoid committing `config.json` with secrets.
 - Clear local cache from Settings if you shared audio derived from sensitive text.
+- Structured logs record event names and text lengths, not complete clipboard/OCR
+  text, API keys, or authorization headers.

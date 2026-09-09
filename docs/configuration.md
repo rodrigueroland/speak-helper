@@ -1,112 +1,41 @@
 # Configuration
 
-[English](configuration.md) · [中文](../zh/configuration.md)
+Speak Helper stores `config.json`, cache files, and rotating logs in the
+platform-specific user configuration directory. Diagnostics displays the exact
+paths. `SPEAK_HELPER_CONFIG_DIR` overrides the directory for tests and controlled
+deployments.
 
-Speak Helper stores settings in a JSON file under the user config directory (via `platformdirs`). Copy [config.example.json](../config.example.json) as a reference.
+The current schema is version 2. Older dictionaries are deep-merged with defaults,
+then validated. Missing `ui.language` uses the first-launch OS locale (`fr` for a
+French locale, otherwise `en`).
 
-**Optional `.env`:** see [`.env.example`](../.env.example). **Model variables in `.env` are optional** — configure TTS/OCR models in **⚙ Settings** instead. No `.env` required.
+## Important keys
 
-**Priority per field:** Settings / `config.json` → `.env` → built-in defaults.
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `ui.language` | locale-derived | `en` or `fr` |
+| `trigger.mode` | `manual` | `manual`, `ask`, or `auto` |
+| `trigger.hotkey` | `ctrl+alt+r` | Read Selection chord |
+| `trigger.stop_hotkey` | `ctrl+alt+shift+x` | Stop chord |
+| `clipboard.restore_after_capture` | `true` | Restore prior MIME clipboard data |
+| `clipboard.capture_timeout_ms` | `1500` | Selection-copy deadline |
+| `tts.backend` | `edge` | `edge` or `openai` |
+| `tts.edge_voice` | `en-US-AriaNeural` | Edge voice identifier |
+| `tts.base_url` | `http://127.0.0.1:8000/v1` | Compatible API root |
+| `tts.api_key` | empty | Optional bearer token |
+| `tts.timeout_sec` | `30` | Request timeout |
+| `preprocessing.preserve_code` | `true` | Keep fenced code |
+| `preprocessing.url_mode` | `keep` | `keep`, `domain`, or `omit` |
+| `ocr.enabled` | `false` | Enable optional image OCR |
 
-**Config path examples**
+Use [config.example.json](../config.example.json) as a complete safe example.
 
-| OS | Typical path |
-|----|----------------|
-| Windows | `%APPDATA%\speak_helper\config.json` |
-| macOS | `~/Library/Application Support/speak_helper/config.json` |
-| Linux | `~/.config/speak_helper/config.json` |
+## OpenAI-compatible and Qwen
 
-Most options can be changed in the **Settings** dialog (tray menu).
+The generic backend posts JSON to `{base_url}/audio/speech` with model, input,
+voice, speed, and response format. Authorization is sent only when the API key is
+non-empty. The Qwen3 preset changes editable defaults but uses this same transport.
+The desktop process never imports a Qwen, CUDA, or PyTorch package.
 
-## TTS backends
-
-### Edge TTS (`tts.backend: "edge"`)
-
-Free **Microsoft neural text-to-speech** via the `edge-tts` library. No API key.
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `tts.edge_voice` | `zh-CN-XiaoxiaoNeural` | Neural voice name |
-| `tts.speed` | `1.2` | Speed multiplier (maps to Edge `rate`) |
-
-Popular voices: `zh-CN-XiaoxiaoNeural`, `zh-CN-YunxiNeural`, `en-US-JennyNeural`.
-
-**Search terms:** Edge TTS, Microsoft TTS, free TTS, neural voice, 微软语音, 免费朗读.
-
-### OpenAI-compatible (`tts.backend: "openai"`)
-
-Uses HTTP `POST {base_url}/audio/speech` — same shape as **OpenAI TTS API**.
-
-| Key | Description |
-|-----|-------------|
-| `tts.base_url` | API root, e.g. `https://api.openai.com/v1` |
-| `tts.api_key` | Bearer token (also in keyring) |
-| `tts.model` | Model id, e.g. `tts-1`, `FunAudioLLM/CosyVoice2-0.5B` |
-| `tts.voice` | Voice id, e.g. `nova` or `model:voice` for SiliconFlow |
-| `tts.speed` | `0.5` – `2.0` |
-| `tts.format` | `mp3`, `opus`, etc. |
-| `tts.sentences_per_chunk` | Sentences merged per API call (streaming playback) |
-| `tts.timeout_sec` | HTTP timeout |
-
-**Supported providers (change `base_url` only)**
-
-| Provider | Base URL |
-|----------|----------|
-| OpenAI | `https://api.openai.com/v1` |
-| Alibaba DashScope | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
-| SiliconFlow | `https://api.siliconflow.cn/v1` |
-| Self-hosted / compatible | Your endpoint |
-
-**Search terms:** OpenAI TTS, CosyVoice, MOSS-TTS, SiliconFlow speech, DashScope TTS, compatible-mode API.
-
-## Triggers (clipboard & hotkey)
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `trigger.clipboard_enabled` | `true` | Watch clipboard for text/images |
-| `trigger.hotkey_enabled` | `true` | Global hotkey |
-| `trigger.hotkey` | `ctrl+alt+r` | Hotkey combo (`pynput` syntax) |
-| `trigger.mode` | `ask` | `ask` = prompt bubble; `auto` = speak immediately |
-| `trigger.min_length` | `2` | Ignore shorter clipboard text |
-| `trigger.max_length` | `2000` | Truncate long text |
-| `trigger.debounce_ms` | `200` | Clipboard debounce |
-
-**Hotkey flow:** simulates copy → reads clipboard → TTS. Works with selected text in most apps.
-
-## OCR (clipboard image → speech)
-
-Uses OpenAI-compatible **vision** API with the same `base_url` and `api_key` as TTS.
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `ocr.enabled` | `true` | Process clipboard images |
-| `ocr.model` | `PaddlePaddle/PaddleOCR-VL-1.5` | Vision model on provider |
-| `ocr.image_quality` | `85` | JPEG quality before upload (1–95) |
-
-Log file: `ocr.log` in the config directory.
-
-**Search terms:** OCR to speech, image text reader, screenshot TTS, PaddleOCR-VL, vision API, 识图朗读, 截图朗读.
-
-## UI
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `ui.dock_edge` | `right` | Floating dock side: `right` or `left` |
-| `ui.bubble_timeout_ms` | `6000` | Ask bubble auto-dismiss |
-| `ui.theme` | `system` | `system`, `dark`, `light` |
-
-## Cache
-
-| Key | Default | Description |
-|-----|---------|-------------|
-| `cache.enabled` | `true` | Cache synthesized audio |
-| `cache.max_mb` | `100` | Max cache size; oldest files deleted |
-
-Cache directory: `{config_dir}/cache/`. Clear from Settings UI.
-
-## API key storage
-
-1. Primary: `tts.api_key` in `config.json`
-2. Backup: OS keyring (`speak_helper` / `api_key`)
-
-Use [write_api_key.py](../write_api_key.py) for scripted setup if needed.
+Environment variables remain supported as fallbacks when the corresponding value
+was not explicitly saved. Prefer the Settings UI for normal use.

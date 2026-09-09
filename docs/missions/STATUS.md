@@ -116,7 +116,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Files modified: `config.py`, `ui/settings_dialog.py`.
 - Tests added: generic local no-key transport coverage.
 - Validation: preset renders; no Qwen server was available for a live test.
-- Remaining issues: documentation and live compatible-server validation.
+- Remaining issues: live compatible-server validation.
 
 ## Mission 11 — Audio player UX — DONE
 
@@ -175,8 +175,9 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
   and media during idempotent shutdown.
 - Files modified: `main.py` and service lifecycle methods.
 - Tests added: hotkey cleanup and application smoke coverage.
-- Validation: development application launched and exited cleanly.
-- Remaining issues: login startup, mutex-handle cleanup, and packaged validation.
+- Validation: development and packaged applications launched and exited cleanly;
+  the Windows mutex handle is explicitly released during shutdown.
+- Remaining issues: optional launch-at-login behavior.
 
 ## Mission 17 — Automated testing — IN PROGRESS
 
@@ -184,7 +185,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 42 total tests across configuration, localization, hotkeys, clipboard,
+- Tests added: 43 total tests across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: OCR, diagnostics, HTTP status, and more UI coverage.
@@ -199,10 +200,50 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Validation: 10/10 synthetic editor captures; Edge synthesis/playback live checks.
 - Remaining issues: PyCharm/Codex and other named applications were not available
   through the UI automation surface; packaged matrix remains NOT RUN.
-## Mission 19 — Packaging — TODO
-## Mission 20 — Documentation — TODO
-## Mission 21 — GitHub CI — TODO
-## Mission 22 — Release readiness — TODO
+
+## Mission 19 — Packaging — DONE
+
+- Objective: produce a reproducible standalone Windows application.
+- Decisions: retain PyInstaller folder mode, bundle Qt multimedia/SVG, Edge-TTS,
+  HTTP, keyring, Pillow, and pynput fallbacks; validate cleanup targets before removal.
+- Files modified: `speak_helper.spec`, `scripts/build_win.ps1`, `scripts/build_mac.sh`.
+- Tests added: packaged `--smoke-test` mode with isolated configuration directory.
+- Validation: Windows build and ZIP succeeded; packaged executable exited 0 and
+  produced config plus structured logs without a development Python runtime.
+- Remaining issues: signing/antivirus and packaged workflow testing remain release tasks.
+
+## Mission 20 — Documentation — DONE
+
+- Objective: provide accurate primary English and French user/developer docs.
+- Decisions: replace the obsolete Chinese mirror with `docs/fr/README.md`; keep
+  implementation status explicit and preserve upstream attribution.
+- Files modified: `README.md`, `docs/`, `CONTRIBUTING.md`, `SECURITY.md`,
+  `CHANGELOG.md`, `NOTICE.md`, `config.example.json`.
+- Tests added: none.
+- Validation: links and claims reviewed against the implemented paths and test matrix.
+- Remaining issues: refresh screenshots and release notes for the final version tag.
+
+## Mission 21 — GitHub CI — IN PROGRESS
+
+- Objective: keep lint, typing, tests, and Windows packaging repeatable in GitHub.
+- Decisions: small Python 3.11/3.13 Linux/Windows matrix plus one Python 3.12
+  packaged build/smoke job; pin uv action input.
+- Files modified: `.github/workflows/ci.yml`.
+- Tests added: packaged bounded launch in the Windows job.
+- Validation: equivalent local commands and packaged smoke pass.
+- Remaining issues: push and confirm the hosted GitHub workflow is green.
+
+## Mission 22 — Release readiness — IN PROGRESS
+
+- Objective: close all quality, application, documentation, and packaged acceptance gates.
+- Decisions: use a checkbox document that cannot conflate unit, development, and
+  packaged validation.
+- Files modified: `docs/development/release_checklist.md`.
+- Tests added: none beyond prior missions.
+- Validation: quality gates, live Edge synthesis/playback, build, and packaged
+  smoke pass on Windows 11.
+- Remaining issues: PyCharm/application matrix, live local/Qwen server, hosted CI,
+  signing review, final version/changelog/tag, and published artifact.
 
 ## Repository ownership
 

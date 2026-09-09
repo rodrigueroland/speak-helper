@@ -1,175 +1,207 @@
 # Speak Helper
 
-**Read selected text aloud with one click** — a lightweight desktop **text-to-speech (TTS)** assistant for **Windows**, **macOS**, and **Linux**.
+Speak Helper is a Windows-first desktop utility that reads selected text aloud.
+Select text in PyCharm, a browser, Word, a PDF viewer, an editor, or another
+application that supports Copy, then press a global hotkey.
 
-[English](README.md) · [中文](README_zh.md)
+[Documentation française](docs/fr/README.md) · [License](LICENSE) ·
+[Development status](docs/missions/STATUS.md)
 
-[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+This repository is a maintained fork of
+[archoor/speak-helper](https://github.com/archoor/speak-helper). It preserves the
+upstream Git history and MIT license; see [NOTICE.md](NOTICE.md).
 
-> **Also known as:** clipboard TTS, read-aloud tool, screen text speaker, OCR-to-speech, OpenAI TTS client, Edge TTS desktop app, 文字转语音, 剪贴板朗读, 选中朗读.
+## Current status
 
-## Use cases
-
-Speak Helper turns on-screen text into speech — useful whenever **reading is tiring, difficult, or inconvenient**.
-
-### Prefer listening over reading
-
-| Scenario | Example |
-|----------|---------|
-| **Too tired to read** | Listen to articles, emails, or chat messages after a long day |
-| **Long documents** | Hear reports or PDF excerpts without scrolling line by line |
-| **Small / dense UI** | Copy text from apps with cramped fonts and let it read aloud |
-
-### Vision & reading support
-
-| Scenario | Example |
-|----------|---------|
-| **Low vision** | Hear selected text from browsers, PDFs, or desktop apps (complements—not replaces—full screen readers) |
-| **Eye strain / fatigue** | Reduce screen time by listening to copied paragraphs |
-| **Elderly users** | Family can help set hotkeys; copy a message or news snippet to hear it clearly |
-| **Dyslexia / reading difficulty** | Audio reinforces written content from any app |
-
-> **Note:** Speak Helper is a **read-aloud assistant** for text you copy or select. It is **not** a full screen reader (NVDA, VoiceOver). It works well **alongside** those tools or when you only need occasional listening.
-
-### Daily productivity
-
-| Scenario | Example |
-|----------|---------|
-| **Multitasking** | Listen while coding, cooking, exercising, or commuting |
-| **Language learning** | Natural Chinese / English neural voices for listening practice |
-| **Screenshot & image text** | Copy a screenshot → OCR extracts text → automatic read-aloud |
-| **Quick workflow** | `Ctrl+Alt+R` on selected text — no browser extension required |
-
-## Features
-
-- **Floating dock** on screen edge — states: idle, speaking, paused, error
-- **Clipboard trigger** — copy text → prompt bubble (ask mode) or auto speak
-- **Global hotkey** — `Ctrl+Alt+R` reads currently selected text
-- **Ask / Auto modes** — switch from tray menu
-- **Two TTS backends**
-  - **Edge TTS** (Microsoft neural voices, no API key)
-  - **OpenAI-compatible API** (`/audio/speech`) — OpenAI, DashScope, SiliconFlow, self-hosted
-- **Clipboard image OCR** — vision API extracts text, then TTS (PaddleOCR-VL, etc.)
-- **Streaming playback** — sentence chunking, fetch-and-play pipeline
-- **Local audio cache** — same text skips API calls
-- **Secure API key** — system keyring + config file
-- **Single instance** — Windows named mutex
+The Windows native selection pipeline, English/French UI, Edge-TTS, generic
+OpenAI-compatible transport, Qwen3 local preset, diagnostics, and standalone
+Windows build are implemented. The automated suite and repeatable native probe
+pass. Full packaged acceptance in PyCharm, browsers, Word, PDFs, and terminals is
+still tracked as open work in the [Windows test matrix](docs/development/windows_test_matrix.md).
 
 ## Quick start
 
-### Install
+### Standalone Windows build
+
+Download or build the `SpeakHelper` folder and run `SpeakHelper.exe`. Python is
+not required on the end user's computer.
+
+On first launch:
+
+1. Open Speak Helper from the system tray.
+2. Open **Settings → Speech** and select an Edge English or French voice.
+3. Open **Settings → Hotkeys** and confirm the Read Selection shortcut.
+4. Select text in another application and press `Ctrl+Alt+R`.
+
+If the shortcut is already owned by another application, Speak Helper displays a
+clear error. Choose another combination in Settings.
+
+### Development run
+
+Requirements: Python 3.11–3.13 and [uv](https://docs.astral.sh/uv/).
 
 ```powershell
-cd speak_helper
-uv venv
-uv sync
-```
-
-Or with pip:
-
-```bash
-pip install -r requirements.txt
-```
-
-### Run
-
-```bash
+uv sync --extra dev
 uv run python -m speak_helper
-# or: speak-helper  (after pip install -e .)
 ```
 
-First run: right-click **system tray** → **Settings** → choose TTS backend and API key (if using OpenAI-compatible mode).
+Run every local quality gate:
 
-### Default backends
+```powershell
+.\scripts\check.ps1
+```
 
-| Backend | API key | Notes |
-|---------|---------|-------|
-| `edge` (default) | Not required | Uses `edge-tts` / Microsoft neural voices |
-| `openai` | Required | Any OpenAI-compatible `/audio/speech` endpoint |
-
-See [docs/configuration.md](docs/configuration.md) for all options.
-
-**Optional `.env`:** copy [`.env.example`](.env.example) if you want team defaults. **Model fields in `.env` are optional** — configure in ⚙ Settings. Priority: `config.json` → `.env` → defaults.
-
-## Keyboard shortcuts
+## Default shortcuts
 
 | Action | Shortcut |
-|--------|----------|
-| Speak selection | `Ctrl+Alt+R` |
-| Confirm bubble | `Enter` |
-| Cancel bubble | `Esc` |
-| Pause / resume listening | Single-click floating dock |
-| Replay last text | Double-click floating dock |
+| --- | --- |
+| Read selected text | `Ctrl+Alt+R` |
+| Stop | `Ctrl+Alt+Shift+X` |
+| Pause / Resume | `Ctrl+Alt+Shift+P` |
+| Replay last text | `Ctrl+Alt+Shift+R` |
 
-## Build executable
+All shortcuts are configurable. On Windows, native `RegisterHotKey` registration
+detects conflicts and `MOD_NOREPEAT` avoids key-repeat storms.
 
-**Windows**
+## How selection capture works
+
+For a manual Read Selection request, Speak Helper:
+
+1. snapshots every available Qt clipboard MIME format;
+2. sends Copy to the focused application;
+3. waits for the Windows clipboard sequence number to change;
+4. captures and conservatively normalizes Unicode text;
+5. restores the original clipboard when configured;
+6. stops obsolete speech and synthesizes the new selection.
+
+This handles repeated identical selections without comparing clipboard text and
+suppresses automatic clipboard monitoring during its own transaction.
+
+## Clipboard modes
+
+- **Manual selection only** is the safe default. Only Read Selection speaks.
+- **Ask before reading** watches user clipboard changes and requests confirmation.
+- **Read clipboard automatically** speaks user clipboard changes immediately.
+
+Automatic modes are disabled during app-generated Copy and restoration events.
+
+## Languages
+
+The user interface supports English and French. Change language under
+**Settings → General**; the visible UI updates immediately and the choice persists.
+English is the fallback for unknown or missing locales.
+
+## TTS backends
+
+### Edge-TTS
+
+Edge-TTS is the default and requires no API key. The Settings voice selector
+includes English voices from the US and UK and French voices from France, Belgium,
+and Canada. Synthesis uses Microsoft's online Edge speech service.
+
+### OpenAI-compatible
+
+Choose **OpenAI-compatible** for any server implementing:
+
+```text
+POST {base_url}/audio/speech
+```
+
+Configure the base URL, model, voice, optional API key, timeout, speed, and audio
+format. Local endpoints may leave the API key empty. Speak Helper reports refused
+connections, timeouts, HTTP failures, empty audio, and unsupported content types.
+
+### Qwen3-TTS Local
+
+Choose **Qwen3-TTS Local** to prefill an editable local OpenAI-compatible endpoint
+and model. The desktop app does not install or import PyTorch, CUDA, or Qwen. Run a
+Qwen3-TTS server separately and expose an OpenAI-compatible `/audio/speech` route;
+then edit URL, model, voice, and timeout to match that server.
+
+No specific third-party Qwen server implementation is assumed or bundled.
+
+## Playback and text processing
+
+- A new manual reading replaces current and queued audio.
+- Pause, Resume, Stop, and Replay are available from global shortcuts and the tray.
+- Markdown headings and bullet markers are softened for speech.
+- URLs can be kept, reduced to their domain, or omitted.
+- Fenced source code is preserved by default and is removed only when configured.
+- French accents, Unicode, multiline text, and repeated selections are supported.
+
+## Diagnostics and logs
+
+Open **Settings → Diagnostics** to see the version, OS, language, Read shortcut and
+registration state, clipboard watcher, TTS backend/endpoint/model, audio state,
+cache path, and log path. You can test clipboard content, copy diagnostics, or open
+the log folder.
+
+Logs are rotating JSON Lines records in the user configuration directory. They use
+English event names such as `hotkey_triggered`, `text_captured`, and
+`playback_started`. API keys, authorization headers, and full clipboard/OCR text
+are not logged.
+
+## Troubleshooting
+
+### The hotkey does nothing
+
+1. Open Diagnostics and check **Hotkey registration**.
+2. If the shortcut conflicts, choose another chord under **Hotkeys**.
+3. Confirm the target application supports `Ctrl+C` for its selection.
+4. A normal process cannot inject Copy into an elevated application; run both at
+   the same integrity level.
+5. Increase the selection timeout for slow or delayed clipboard providers.
+
+### Speech fails
+
+- Use **Test TTS** in Settings.
+- For Edge-TTS, verify internet access and choose a listed voice.
+- For a local endpoint, verify the URL and that `/audio/speech` is implemented.
+- Leave API key empty only when the configured server permits it.
+- Check Diagnostics and the structured log for the precise stage that failed.
+
+### Audio does not play
+
+Check the active Windows output device and volume. Speak Helper clears old playback
+when a new selection arrives. Unsupported server audio formats are rejected before
+playback where possible.
+
+## Build Windows
 
 ```powershell
 .\scripts\build_win.ps1
-# Output: dist\SpeakHelper\SpeakHelper.exe
 ```
 
-**macOS**
+Outputs:
 
-```bash
-bash scripts/build_mac.sh
-# Output: dist/SpeakHelper.app
+- `dist\SpeakHelper\SpeakHelper.exe`
+- `dist\SpeakHelper-win64.zip`
+
+The folder build contains Python, Qt, multimedia plugins, Edge-TTS, and the icon.
+The executable supports `--smoke-test` for bounded packaging validation.
+
+## Architecture
+
+The PySide6 composition root connects focused services:
+
+```text
+Windows native hotkey -> SelectionCaptureService -> text normalization
+                       -> SpeechService -> AudioPlayer -> tray/dock state
 ```
 
-## Documentation
-
-| Topic | English | 中文 |
-|-------|---------|------|
-| Index | [docs/README.md](docs/README.md) | [docs/zh/README.md](docs/zh/README.md) |
-| Installation | [docs/installation.md](docs/installation.md) | [docs/zh/installation.md](docs/zh/installation.md) |
-| Configuration | [docs/configuration.md](docs/configuration.md) | [docs/zh/configuration.md](docs/zh/configuration.md) |
-| FAQ | [docs/faq.md](docs/faq.md) | [docs/zh/faq.md](docs/zh/faq.md) |
-| Use cases | [docs/use-cases.md](docs/use-cases.md) | [docs/zh/use-cases.md](docs/zh/use-cases.md) |
-| Architecture | [docs/architecture.md](docs/architecture.md) | [docs/zh/architecture.md](docs/zh/architecture.md) |
-
-## Tests
-
-```bash
-uv run pytest tests/
-```
-
-## Project layout
-
-```
-speak_helper/
-├── speak_helper/          # Python package
-│   ├── main.py            # App controller & wiring
-│   ├── config.py          # JSON config + keyring
-│   ├── speech_service.py  # TTS (edge + OpenAI-compatible)
-│   ├── ocr_service.py     # Vision OCR for clipboard images
-│   ├── clipboard_watcher.py
-│   ├── hotkey_service.py
-│   ├── audio_player.py
-│   └── ui/                # PySide6 widgets
-├── docs/                  # User & contributor docs
-├── scripts/               # Build scripts
-├── tests/
-├── pyproject.toml
-└── config.example.json
-```
-
-## Privacy
-
-- Text is sent only to **your configured TTS / OCR API** (or Microsoft Edge TTS for `edge` backend).
-- No third-party analytics or relay servers.
-- API keys stored in OS credential store when possible.
-- Local cache lives in the user config directory; clear from Settings.
+The UI does not perform HTTP calls. Windows-native details sit behind hotkey and
+copy-injection abstractions, with `pynput` fallbacks retained for macOS/Linux.
+See [architecture.md](docs/architecture.md) and the
+[upstream audit](docs/development/upstream_audit.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) ([中文](CONTRIBUTING_zh.md)).
+Use English for code, names, comments, logs, tests, commits, and internal technical
+documentation. User-facing strings belong in the centralized English/French
+catalogs. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## License
+## License and attribution
 
-[MIT License](LICENSE) — Copyright (c) 2026 Speak Helper contributors.
-
-## Search keywords
-
-`text-to-speech`, `TTS`, `read aloud`, `clipboard reader`, `global hotkey TTS`, `PySide6`, `Qt desktop`, `Edge TTS`, `OpenAI speech API`, `CosyVoice`, `MOSS-TTS`, `OCR to speech`, `PaddleOCR`, `vision API`, `accessibility`, `dyslexia`, `文字转语音`, `朗读助手`, `剪贴板朗读`, `全局快捷键`, `识图朗读`.
+Speak Helper is distributed under the [MIT License](LICENSE). This fork is derived
+from the original Speak Helper project by archoor and retains its history and
+copyright notice. No affiliation or endorsement is implied.

@@ -1,26 +1,43 @@
 {
+  "config_version": 2,
   "tts": {
     "backend": "edge",
-    "edge_voice": "zh-CN-XiaoxiaoNeural",
-    "base_url": "https://api.siliconflow.cn/v1",
+    "provider_preset": "custom",
+    "edge_voice": "en-US-AriaNeural",
+    "base_url": "http://127.0.0.1:8000/v1",
+    "model": "tts-1",
+    "voice": "alloy",
     "api_key": "",
-    "model": "FunAudioLLM/CosyVoice2-0.5B",
-    "voice": "FunAudioLLM/CosyVoice2-0.5B:anna",
-    "speed": 1.2,
+    "speed": 1.0,
     "format": "mp3",
     "timeout_sec": 30,
     "sentences_per_chunk": 3
   },
   "trigger": {
-    "clipboard_enabled": true,
+    "clipboard_enabled": false,
     "hotkey_enabled": true,
     "hotkey": "ctrl+alt+r",
-    "mode": "ask",
-    "min_length": 2,
-    "max_length": 2000,
+    "stop_hotkey": "ctrl+alt+shift+x",
+    "pause_hotkey": "ctrl+alt+shift+p",
+    "replay_hotkey": "ctrl+alt+shift+r",
+    "mode": "manual",
+    "min_length": 1,
+    "max_length": 20000,
     "debounce_ms": 200
   },
+  "clipboard": {
+    "restore_after_capture": true,
+    "capture_timeout_ms": 1500,
+    "poll_interval_ms": 25
+  },
+  "preprocessing": {
+    "enabled": true,
+    "strip_markdown_markers": true,
+    "preserve_code": true,
+    "url_mode": "keep"
+  },
   "ui": {
+    "language": "en",
     "dock_x": null,
     "dock_y": null,
     "dock_edge": "right",
@@ -33,7 +50,7 @@
     "max_mb": 100
   },
   "ocr": {
-    "enabled": true,
+    "enabled": false,
     "model": "PaddlePaddle/PaddleOCR-VL-1.5",
     "image_quality": 85
   }
