@@ -88,6 +88,23 @@ def application_stylesheet(palette: Palette = LIGHT) -> str:
         QListWidget:focus, QPushButton:focus {{
             border: 2px solid {palette.focus};
         }}
+        QCheckBox {{ spacing: 8px; }}
+        QCheckBox::indicator {{
+            width: 16px;
+            height: 16px;
+            border: 1px solid {palette.border};
+            border-radius: 4px;
+            background: {palette.surface};
+        }}
+        QCheckBox::indicator:hover {{ border: 2px solid {palette.focus}; }}
+        QCheckBox::indicator:checked {{
+            border: 4px solid {palette.accent};
+            background: {palette.accent_text};
+        }}
+        QCheckBox::indicator:disabled {{
+            border-color: {palette.text_muted};
+            background: {palette.surface_subtle};
+        }}
         QPushButton {{
             min-height: 30px;
             padding: 2px 12px;

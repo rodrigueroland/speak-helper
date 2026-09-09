@@ -28,6 +28,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSpinBox,
     QStackedWidget,
     QVBoxLayout,
@@ -400,6 +401,9 @@ class SettingsDialog(QDialog):
     def _diagnostics_page(self) -> QWidget:
         page, layout = self._page()
         self._diagnostics_form = QFormLayout()
+        self._diagnostics_form.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow
+        )
         self._diagnostic_values: dict[str, QLabel] = {}
         keys = (
             "app_version",
@@ -433,6 +437,9 @@ class SettingsDialog(QDialog):
         )
         for name, label_key in zip(keys, label_keys, strict=True):
             value = QLabel()
+            value.setWordWrap(True)
+            value.setMinimumWidth(0)
+            value.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
             value.setTextInteractionFlags(
                 value.textInteractionFlags() | Qt.TextInteractionFlag.TextSelectableByMouse
             )

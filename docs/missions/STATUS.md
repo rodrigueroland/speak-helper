@@ -152,16 +152,19 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Validation: OCR suite passes with the feature disabled by default at startup.
 - Remaining issues: none for the isolated optional scope.
 
-## Mission 14 — Settings UI — IN PROGRESS
+## Mission 14 — Settings UI — DONE
 
 - Objective: responsive, accessible, localized sections with separated service logic.
 - Decisions: navigation plus stacked scrollable pages, semantic theme tokens, no
   fixed content positioning, keyboard focus borders, and application-wide
-  light/dark/system theme resolution.
+  light/dark/system theme resolution. Long diagnostic paths wrap instead of being
+  silently clipped, and checkbox states have explicit shape/fill signifiers.
 - Files modified: `ui/settings_dialog.py`, `ui/theme.py`, application composition.
-- Tests added: runtime language switch and deterministic theme stylesheet tests.
-- Validation: English and French native Windows renders inspected at 860 x 700.
-- Remaining issues: inspect every page and dark mode at minimum size and high DPI.
+- Tests added: runtime language switch, deterministic theme stylesheet tests, and
+  every Settings page at minimum size across English/French and light/dark themes.
+- Validation: native Windows renders inspected in English/light and French/dark;
+  all pages pass at 100% and 150% Qt scaling without horizontal clipping.
+- Remaining issues: none for the current English/French desktop scope.
 
 ## Mission 15 — System tray — DONE
 
@@ -193,10 +196,10 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 67 total tests across configuration, localization, hotkeys, clipboard,
+- Tests added: 71 total test cases across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
-- Remaining issues: more UI resize/DPI and packaged integration coverage.
+- Remaining issues: packaged integration coverage.
 
 ## Mission 18 — Windows manual validation — IN PROGRESS
 

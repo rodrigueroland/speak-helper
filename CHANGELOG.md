@@ -30,6 +30,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Wrap long diagnostic paths instead of clipping them in the Settings viewport
+- Make checkbox states visible and keyboard-discoverable in both themes
 - Replaced the unreliable Qt timer created from a plain hotkey thread
 - Report global hotkey conflicts instead of failing silently
 - Release completed audio file handles on Windows
