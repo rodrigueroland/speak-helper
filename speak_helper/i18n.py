@@ -128,6 +128,9 @@ EN: dict[str, str] = {
     "tab.ocr": "OCR",
     "tab.speech": "Speech",
     "test.failed": "Failed: {reason}",
+    "test.hotkey_press": "Press {hotkey} now. The next press will only run the test.",
+    "test.hotkey_success": "Hotkey received successfully.",
+    "test.hotkey_unavailable": "The Read Selection hotkey is not registered.",
     "test.running": "Testing…",
     "test.success": "Success ({duration_ms} ms)",
     "test.tts_phrase": "Speak Helper text to speech test.",
@@ -262,6 +265,11 @@ FR: dict[str, str] = {
     "tab.ocr": "OCR",
     "tab.speech": "Voix",
     "test.failed": "Échec : {reason}",
+    "test.hotkey_press": (
+        "Appuyez maintenant sur {hotkey}. Le prochain appui servira uniquement au test."
+    ),
+    "test.hotkey_success": "Raccourci reçu avec succès.",
+    "test.hotkey_unavailable": "Le raccourci Lire la sélection n’est pas enregistré.",
     "test.running": "Test en cours…",
     "test.success": "Réussi ({duration_ms} ms)",
     "test.tts_phrase": "Test de synthèse vocale de Speak Helper.",

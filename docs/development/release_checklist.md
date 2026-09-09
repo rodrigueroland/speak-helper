@@ -9,7 +9,7 @@ release commit and packaged artifact.
 - [x] Ruff formatting check
 - [x] Ruff lint
 - [x] mypy
-- [x] pytest (49 tests on Windows/Python 3.12)
+- [x] pytest (52 tests on Windows/Python 3.12)
 - [x] Windows native selection probe, 10/10 consecutive captures
 - [x] GitHub Actions green on Linux and Windows, Python 3.11 and 3.13
 

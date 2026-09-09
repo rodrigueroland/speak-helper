@@ -310,6 +310,7 @@ class HotkeyService(QObject):
     stop_requested = Signal()
     pause_requested = Signal()
     replay_requested = Signal()
+    test_triggered = Signal(str)
     registration_changed = Signal(str, bool, str)
     error = Signal(str)
     _action_received = Signal(str)
@@ -327,6 +328,7 @@ class HotkeyService(QObject):
             WindowsNativeHotkeyRegistrar() if sys.platform == "win32" else PynputHotkeyRegistrar()
         )
         self._results: dict[str, RegistrationResult] = {}
+        self._test_action: str | None = None
         self._action_received.connect(self._dispatch, Qt.ConnectionType.QueuedConnection)
 
     @property
@@ -364,8 +366,20 @@ class HotkeyService(QObject):
             self.error.emit(str(exc))
 
     def stop(self) -> None:
+        self.cancel_test()
         self._registrar.unregister_all()
         self._results.clear()
+
+    def arm_test(self, action: str = ACTION_READ) -> bool:
+        """Consume the next registered action and report it as a diagnostic test."""
+        registration = self._results.get(action)
+        if registration is None or not registration.registered:
+            return False
+        self._test_action = action
+        return True
+
+    def cancel_test(self) -> None:
+        self._test_action = None
 
     def set_enabled(self, enabled: bool) -> None:
         self._enabled = enabled
@@ -391,6 +405,11 @@ class HotkeyService(QObject):
     @Slot(str)
     def _dispatch(self, action: str) -> None:
         logger.info("hotkey_triggered action=%s", action)
+        if action == self._test_action:
+            self._test_action = None
+            logger.info("hotkey_test_completed action=%s", action)
+            self.test_triggered.emit(action)
+            return
         signals = {
             ACTION_READ: self.read_requested,
             ACTION_STOP: self.stop_requested,

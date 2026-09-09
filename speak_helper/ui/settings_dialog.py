@@ -38,7 +38,7 @@ from ..clipboard_watcher import ClipboardWatcher
 from ..config import Config
 from ..diagnostics import collect_diagnostics, format_diagnostics
 from ..error_messages import localize_speech_error
-from ..hotkey_service import HotkeyService
+from ..hotkey_service import ACTION_READ, HotkeyService
 from ..i18n import Translator
 from .theme import LIGHT, application_stylesheet
 
@@ -160,6 +160,8 @@ class SettingsDialog(QDialog):
         self.setStyleSheet(application_stylesheet())
         self._build_ui()
         self._load_values()
+        self._hotkeys.test_triggered.connect(self._hotkey_test_completed)
+        self.finished.connect(lambda: self._hotkeys.cancel_test())
         self._translator.language_changed.connect(self.retranslate)
         self.retranslate()
 
@@ -420,19 +422,24 @@ class SettingsDialog(QDialog):
             self._diagnostic_values[name] = value
             self._add_row(self._diagnostics_form, label_key, value)
         layout.addLayout(self._diagnostics_form)
-        actions = QHBoxLayout()
+        primary_actions = QHBoxLayout()
+        self._test_hotkey = QPushButton()
+        self._test_hotkey.clicked.connect(self._diagnose_hotkey)
         self._test_clipboard = QPushButton()
         self._test_clipboard.clicked.connect(self._diagnose_clipboard)
+        primary_actions.addWidget(self._test_hotkey)
+        primary_actions.addWidget(self._test_clipboard)
+        layout.addLayout(primary_actions)
+        secondary_actions = QHBoxLayout()
         self._copy_diagnostics = QPushButton()
         self._copy_diagnostics.clicked.connect(self._copy_diagnostics_text)
         self._open_logs = QPushButton()
         self._open_logs.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._log_path.parent)))
         )
-        actions.addWidget(self._test_clipboard)
-        actions.addWidget(self._copy_diagnostics)
-        actions.addWidget(self._open_logs)
-        layout.addLayout(actions)
+        secondary_actions.addWidget(self._copy_diagnostics)
+        secondary_actions.addWidget(self._open_logs)
+        layout.addLayout(secondary_actions)
         self._diagnostic_result = QLabel()
         layout.addWidget(self._diagnostic_result)
         layout.addStretch()
@@ -503,6 +510,7 @@ class SettingsDialog(QDialog):
         self._show_key.setText(tr("settings.show_key"))
         self._test_tts_button.setText(tr("action.test_tts"))
         self._clear_cache.setText(tr("settings.clear_cache"))
+        self._test_hotkey.setText(tr("action.test_hotkey"))
         self._test_clipboard.setText(tr("action.test_clipboard"))
         self._copy_diagnostics.setText(tr("action.copy_diagnostics"))
         self._open_logs.setText(tr("action.open_log_folder"))
@@ -686,3 +694,15 @@ class SettingsDialog(QDialog):
             if key == "test.success"
             else self._translator.text(key)
         )
+
+    def _diagnose_hotkey(self) -> None:
+        if self._hotkeys.arm_test(ACTION_READ):
+            self._diagnostic_result.setText(
+                self._translator.text("test.hotkey_press", hotkey=self._config.hotkey)
+            )
+        else:
+            self._diagnostic_result.setText(self._translator.text("test.hotkey_unavailable"))
+
+    def _hotkey_test_completed(self, action: str) -> None:
+        if action == ACTION_READ:
+            self._diagnostic_result.setText(self._translator.text("test.hotkey_success"))
