@@ -11,7 +11,7 @@ tests below.
 - OS: Windows 11
 - Python: 3.12.10
 - Qt/PySide6: 6.11.1
-- Build type: development environment (`uv run`)
+- Build types: development environment (`uv run`) and standalone PyInstaller folder
 - Default Read Selection hotkey: registration failed with Windows error 1409
   because another application owns `Ctrl+Alt+R` on this host.
 - Native registrar probe: `Ctrl+Alt+Shift+F24` registered and unregistered.
@@ -30,8 +30,10 @@ tests below.
 | Edge-TTS English synthesis | PASS | Live MP3 response, 13,968 bytes |
 | Edge-TTS French synthesis | PASS | Live MP3 response, 12,096 bytes |
 | Qt audio playback | PASS | Real MP3 emitted playback started and finished; file handle released afterward |
+| Packaged Edge-TTS and playback | PASS | `SpeakHelper.exe --tts-probe` exited 0 |
 | English Settings layout | PASS | Native Windows render inspected at 860 x 700 |
 | French Settings layout | PASS | Native Windows render inspected at 860 x 700 |
+| Settings scaling | PASS | Every EN/FR light/dark page passes at 100% and 150% Qt scaling |
 
 ## Application matrix
 
@@ -49,7 +51,7 @@ tests below.
 | Stop current speech | DEV PASS | NOT RUN | Unit state test plus real playback stop/source release |
 | Pause and resume | UNIT PASS | NOT RUN | State follows Qt multimedia signals |
 | Replay last text | UNIT PASS | NOT RUN | Composition path implemented |
-| English/French runtime switch | DEV PASS | NOT RUN | Dialog smoke test and native renders |
+| English/French runtime switch | DEV PASS | LAYOUT PASS | Dialog tests and native renders |
 | Single instance | DEV SMOKE | NOT RUN | Packaged behavior still required |
 
 ## Critical PyCharm acceptance procedure

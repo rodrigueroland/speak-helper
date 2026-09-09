@@ -14,6 +14,7 @@ release commit and packaged artifact.
 - [x] Settings layout at 150% Qt scaling
 - [x] Windows native selection probe, 10/10 consecutive captures
 - [x] GitHub Actions green on Linux and Windows, Python 3.11 and 3.13
+- [x] CI preserves the standalone Windows folder as a downloadable artifact
 
 ## Application behavior
 
@@ -63,5 +64,5 @@ release commit and packaged artifact.
 - [x] Architecture, configuration, troubleshooting, and build instructions updated
 - [x] Mission tracker and Windows matrix updated
 - [ ] Final changelog and version number
-- [ ] No secrets or generated user content in Git diff
+- [x] No secrets or generated user content in Git diff
 - [ ] Release tag and published artifact

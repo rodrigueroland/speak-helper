@@ -190,7 +190,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
   the Windows mutex handle is explicitly released during shutdown.
 - Remaining issues: fresh-profile packaged validation remains in Mission 18/19.
 
-## Mission 17 — Automated testing — IN PROGRESS
+## Mission 17 — Automated testing — DONE
 
 - Objective: cover critical pure logic and service boundaries without live dependencies.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
@@ -199,9 +199,10 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Tests added: 71 total test cases across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
-- Remaining issues: packaged integration coverage.
+- Remaining issues: none for automated service and UI boundaries; named-application
+  manual acceptance remains tracked separately in Mission 18.
 
-## Mission 18 — Windows manual validation — IN PROGRESS
+## Mission 18 — Windows manual validation — BLOCKED
 
 - Objective: repeatedly validate real application workflows on Windows 11.
 - Decisions: maintain a factual matrix and a reusable native selection probe.
@@ -210,7 +211,8 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Tests added: 10-cycle native hotkey/clipboard integration probe.
 - Validation: 10/10 synthetic editor captures; Edge synthesis/playback live checks.
 - Remaining issues: PyCharm/Codex and other named applications were not available
-  through the UI automation surface; packaged matrix remains NOT RUN.
+  through the UI automation surface (`apps=[]`, `browsers=[]`); packaged matrix
+  remains NOT RUN and requires an interactive Windows session.
 
 ## Mission 19 — Packaging — DONE
 
@@ -239,14 +241,15 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 
 - Objective: keep lint, typing, tests, and Windows packaging repeatable in GitHub.
 - Decisions: small Python 3.11/3.13 Linux/Windows matrix plus one Python 3.12
-  packaged build/smoke job; pin uv action input.
+  packaged build/smoke job; pin uv action input and retain the standalone Windows
+  folder as a downloadable workflow artifact.
 - Files modified: `.github/workflows/ci.yml`.
 - Tests added: packaged bounded launch in the Windows job.
-- Validation: hosted run 34396262540 passed all four Linux/Windows quality jobs
-  and the Windows packaged executable smoke job.
+- Validation: hosted run 34409056995 passed all four Linux/Windows quality jobs
+  and the Windows packaged executable smoke job on commit `2e34ad3`.
 - Remaining issues: none for the current workflow scope.
 
-## Mission 22 — Release readiness — IN PROGRESS
+## Mission 22 — Release readiness — BLOCKED
 
 - Objective: close all quality, application, documentation, and packaged acceptance gates.
 - Decisions: use a checkbox document that cannot conflate unit, development, and
@@ -255,8 +258,9 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Tests added: none beyond prior missions.
 - Validation: quality gates, live Edge synthesis/playback, build, and packaged
   smoke pass on Windows 11.
-- Remaining issues: PyCharm/application matrix, live local/Qwen server, hosted CI,
-  signing review, final version/changelog/tag, and published artifact.
+- Remaining issues: interactive PyCharm/application matrix, live GPU-backed Qwen
+  server, fresh-profile and signing/antivirus review. Version/tag/release publication
+  intentionally waits for these acceptance gates.
 
 ## Repository ownership
 
