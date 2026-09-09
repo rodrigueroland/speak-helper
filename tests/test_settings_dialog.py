@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QApplication, QScrollArea
 from speak_helper.audio_player import AudioPlayer
 from speak_helper.clipboard_watcher import ClipboardWatcher
 from speak_helper.config import Config
-from speak_helper.hotkey_service import HotkeyService
+from speak_helper.hotkey_service import HotkeyService, WindowsNativeHotkeyRegistrar
 from speak_helper.i18n import Translator
 from speak_helper.ui.settings_dialog import SettingsDialog
 from speak_helper.ui.theme import stylesheet_for_theme
@@ -124,3 +124,33 @@ def test_all_settings_pages_fit_minimum_size(qtbot, tmp_path, language, theme):
 
     assert dialog._save_button.isVisible()
     assert dialog._buttons.button(dialog._buttons.StandardButton.Cancel).isVisible()
+
+
+def test_suggest_hotkey_uses_first_available_non_reserved_chord(qtbot, tmp_path, monkeypatch):
+    config = Config(config_dir=tmp_path, locale_name="en_US")
+    translator = Translator(config)
+    registrar = MagicMock()
+    registrar.register.return_value = []
+    startup = MagicMock()
+    startup.supported = True
+    startup.is_enabled.return_value = False
+    monkeypatch.setattr(
+        WindowsNativeHotkeyRegistrar,
+        "is_available",
+        staticmethod(lambda combo: combo == "ctrl+alt+space"),
+    )
+    dialog = SettingsDialog(
+        config,
+        translator,
+        hotkeys=HotkeyService(config, registrar=registrar),
+        clipboard_watcher=ClipboardWatcher(config),
+        player=AudioPlayer(),
+        log_path=tmp_path / "app.log",
+        startup_service=startup,
+    )
+    qtbot.addWidget(dialog)
+
+    dialog._suggest_read_hotkey()
+
+    assert dialog._read_hotkey.text() == "ctrl+alt+space"
+    assert "currently available" in dialog._suggest_hotkey_result.text()

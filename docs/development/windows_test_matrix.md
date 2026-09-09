@@ -15,6 +15,7 @@ tests below.
 - Default Read Selection hotkey: registration failed with Windows error 1409
   because another application owns `Ctrl+Alt+R` on this host.
 - Native registrar probe: `Ctrl+Alt+Shift+F24` registered and unregistered.
+- Shortcut suggestion probe: `Ctrl+Alt+Space` is currently available on this host.
 
 ## Automated and integration evidence
 
@@ -22,6 +23,7 @@ tests below.
 | --- | --- | --- |
 | Native hotkey registration and cleanup | PASS | Uncommon probe chord registered with `RegisterHotKey`, then unregistered |
 | Hotkey conflict reporting | PASS | Default chord returned Windows error 1409 and emitted a structured error event |
+| Available shortcut suggestion | PASS | Native probe skipped occupied `Ctrl+Alt+R` and selected `Ctrl+Alt+Space` |
 | Repeated selection capture | PASS | `scripts/windows_selection_probe.py`: 10/10 consecutive cycles |
 | Unicode and French accents | PASS | Probe captured `français — Unicode ✓` exactly |
 | Clipboard restoration | PASS | Unit tests cover text restoration; the 10-cycle probe ran with restoration enabled |

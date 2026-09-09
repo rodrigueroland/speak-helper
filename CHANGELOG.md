@@ -22,6 +22,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Packaged `--tts-probe` for end-to-end synthesis and playback validation
 - Downloadable standalone Windows artifact from every successful CI build
 - Shared PyCharm run configuration and backward-compatible root launcher
+- Native Windows shortcut suggestion when the configured chord is occupied
 
 ### Changed
 

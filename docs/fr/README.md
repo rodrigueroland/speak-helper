@@ -21,7 +21,8 @@ la licence MIT du projet d'origine sont conservés.
 5. Appuyez sur `Ctrl+Alt+R`.
 
 Si une autre application utilise déjà ce raccourci, Speak Helper affiche le conflit.
-Choisissez alors une autre combinaison dans **Paramètres → Raccourcis**.
+Dans **Paramètres → Raccourcis**, utilisez **Suggérer un raccourci disponible**
+pour tester des alternatives avant d’en enregistrer une.
 
 ## Raccourcis par défaut
 

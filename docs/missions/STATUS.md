@@ -56,11 +56,13 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 
 - Objective: make all four global actions reliable and diagnosable on Windows.
 - Decisions: native `RegisterHotKey` plus `MOD_NOREPEAT` on Windows; `pynput`
-  fallback elsewhere; Qt queued dispatch and explicit cleanup.
+  fallback elsewhere; Qt queued dispatch, explicit cleanup, and a Settings action
+  that probes curated alternatives without retaining temporary registrations.
 - Files modified: `speak_helper/hotkey_service.py`, `speak_helper/main.py`.
 - Tests added: parsing, duplicates, conflict results, dispatch, cleanup.
 - Validation: native probe chord registered/unregistered; default chord conflict
-  correctly returned Windows error 1409.
+  correctly returned Windows error 1409; suggestion selected the available
+  `Ctrl+Alt+Space` alternative on the release host.
 - Remaining issues: repeat manual validation with the user's final chosen chord.
 
 ## Mission 5 — Selected-text capture — IN PROGRESS
@@ -198,7 +200,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 72 total test cases across configuration, localization, hotkeys, clipboard,
+- Tests added: 74 total test cases across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: none for automated service and UI boundaries; named-application

@@ -9,6 +9,7 @@ from speak_helper.hotkey_service import (
     ACTION_READ,
     HotkeyService,
     RegistrationResult,
+    first_available_hotkey,
     parse_hotkey,
 )
 
@@ -93,3 +94,20 @@ def test_hotkey_diagnostic_rejects_unregistered_action(tmp_path) -> None:
     service = HotkeyService(config, registrar=FakeRegistrar())
 
     assert not service.arm_test(ACTION_READ)
+
+
+def test_first_available_hotkey_skips_invalid_reserved_and_unavailable() -> None:
+    checked: list[str] = []
+
+    def probe(combo: str) -> bool:
+        checked.append(combo)
+        return combo == "ctrl+shift+f11"
+
+    result = first_available_hotkey(
+        ("invalid", "ctrl+alt+r", "ctrl+alt+space", "ctrl+shift+f11"),
+        reserved=("ctrl+alt+space", "also-invalid"),
+        probe=probe,
+    )
+
+    assert result == "ctrl+shift+f11"
+    assert checked == ["ctrl+alt+r", "ctrl+shift+f11"]

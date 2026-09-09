@@ -34,7 +34,8 @@ On first launch:
 4. Select text in another application and press `Ctrl+Alt+R`.
 
 If the shortcut is already owned by another application, Speak Helper displays a
-clear error. Choose another combination in Settings.
+clear error. Open **Settings → Hotkeys** and use **Suggest available shortcut**
+to probe safe alternatives before saving one.
 
 ### Development run
 

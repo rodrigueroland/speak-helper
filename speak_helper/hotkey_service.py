@@ -30,6 +30,14 @@ ACTION_STOP = "stop"
 ACTION_PAUSE = "pause"
 ACTION_REPLAY = "replay"
 
+READ_HOTKEY_CANDIDATES = (
+    "ctrl+alt+r",
+    "ctrl+alt+space",
+    "ctrl+alt+shift+u",
+    "ctrl+shift+f11",
+    "ctrl+alt+f12",
+)
+
 _MODIFIER_ALIASES = {
     "control": "ctrl",
     "ctl": "ctrl",
@@ -101,6 +109,29 @@ def _pynput_hotkey(combo: str) -> str:
     modifiers = [f"<{aliases.get(part, part)}>" for part in parsed.modifiers]
     key = f"<{parsed.key}>" if len(parsed.key) > 1 else parsed.key
     return "+".join((*modifiers, key))
+
+
+def first_available_hotkey(
+    candidates: tuple[str, ...],
+    *,
+    reserved: tuple[str, ...] = (),
+    probe: Callable[[str], bool],
+) -> str | None:
+    """Return the first valid, unreserved chord accepted by an availability probe."""
+    reserved_canonical: set[str] = set()
+    for combo in reserved:
+        try:
+            reserved_canonical.add(parse_hotkey(combo).canonical)
+        except ValueError:
+            continue
+    for combo in candidates:
+        try:
+            canonical = parse_hotkey(combo).canonical
+        except ValueError:
+            continue
+        if canonical not in reserved_canonical and probe(canonical):
+            return canonical
+    return None
 
 
 class HotkeyRegistrar(Protocol):
@@ -200,6 +231,28 @@ class WindowsNativeHotkeyRegistrar(QAbstractNativeEventFilter):
         else:
             virtual_key = cls._NAMED_KEYS[parsed.key]
         return modifiers, virtual_key
+
+    @classmethod
+    def is_available(cls, combo: str) -> bool:
+        """Probe a chord on the current thread without retaining registration."""
+        if sys.platform != "win32":
+            return False
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        user32.RegisterHotKey.argtypes = (
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.c_uint,
+            ctypes.c_uint,
+        )
+        user32.RegisterHotKey.restype = ctypes.c_bool
+        user32.UnregisterHotKey.argtypes = (ctypes.c_void_p, ctypes.c_int)
+        user32.UnregisterHotKey.restype = ctypes.c_bool
+        modifiers, virtual_key = cls.windows_codes(combo)
+        probe_identifier = 0x53FF
+        registered = bool(user32.RegisterHotKey(None, probe_identifier, modifiers, virtual_key))
+        if registered:
+            user32.UnregisterHotKey(None, probe_identifier)
+        return registered
 
     def register(
         self, hotkeys: Mapping[str, str], callback: Callable[[str], None]

@@ -41,7 +41,13 @@ from ..clipboard_watcher import ClipboardWatcher
 from ..config import Config
 from ..diagnostics import collect_diagnostics, format_diagnostics
 from ..error_messages import localize_speech_error
-from ..hotkey_service import ACTION_READ, HotkeyService
+from ..hotkey_service import (
+    ACTION_READ,
+    READ_HOTKEY_CANDIDATES,
+    HotkeyService,
+    WindowsNativeHotkeyRegistrar,
+    first_available_hotkey,
+)
 from ..i18n import Translator
 from ..speech_service import build_openai_speech_payload
 from ..startup_service import StartupService
@@ -330,6 +336,14 @@ class SettingsDialog(QDialog):
         self._add_row(form, "hotkey.pause", self._pause_hotkey)
         self._add_row(form, "hotkey.replay", self._replay_hotkey)
         layout.addLayout(form)
+        suggestion_row = QHBoxLayout()
+        self._suggest_hotkey = QPushButton()
+        self._suggest_hotkey.clicked.connect(self._suggest_read_hotkey)
+        self._suggest_hotkey_result = QLabel()
+        self._suggest_hotkey_result.setWordWrap(True)
+        suggestion_row.addWidget(self._suggest_hotkey)
+        suggestion_row.addWidget(self._suggest_hotkey_result, 1)
+        layout.addLayout(suggestion_row)
         layout.addStretch()
         return page
 
@@ -538,6 +552,7 @@ class SettingsDialog(QDialog):
         self._test_tts_button.setText(tr("action.test_tts"))
         self._clear_cache.setText(tr("settings.clear_cache"))
         self._test_hotkey.setText(tr("action.test_hotkey"))
+        self._suggest_hotkey.setText(tr("action.suggest_hotkey"))
         self._test_clipboard.setText(tr("action.test_clipboard"))
         self._copy_diagnostics.setText(tr("action.copy_diagnostics"))
         self._open_logs.setText(tr("action.open_log_folder"))
@@ -752,6 +767,25 @@ class SettingsDialog(QDialog):
             )
         else:
             self._diagnostic_result.setText(self._translator.text("test.hotkey_unavailable"))
+
+    def _suggest_read_hotkey(self) -> None:
+        reserved = (
+            self._stop_hotkey.text(),
+            self._pause_hotkey.text(),
+            self._replay_hotkey.text(),
+        )
+        suggestion = first_available_hotkey(
+            READ_HOTKEY_CANDIDATES,
+            reserved=reserved,
+            probe=WindowsNativeHotkeyRegistrar.is_available,
+        )
+        if suggestion is None:
+            self._suggest_hotkey_result.setText(self._translator.text("hotkey.suggestion_none"))
+            return
+        self._read_hotkey.setText(suggestion)
+        self._suggest_hotkey_result.setText(
+            self._translator.text("hotkey.suggestion", hotkey=suggestion)
+        )
 
     def _hotkey_test_completed(self, action: str) -> None:
         if action == ACTION_READ:
