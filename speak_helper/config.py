@@ -169,7 +169,10 @@ class Config:
     """JSON-backed configuration with backward-compatible migrations."""
 
     def __init__(self, config_dir: Path | None = None, locale_name: str | None = None) -> None:
-        self._dir = config_dir or Path(user_config_dir("speak_helper"))
+        environment_dir = os.getenv("SPEAK_HELPER_CONFIG_DIR", "").strip()
+        self._dir = config_dir or (
+            Path(environment_dir) if environment_dir else Path(user_config_dir("speak_helper"))
+        )
         self._file = self._dir / "config.json"
         self._locale_name = locale_name
         self._data: dict[str, Any] = copy.deepcopy(DEFAULT)

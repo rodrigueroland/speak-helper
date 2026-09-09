@@ -59,3 +59,12 @@ def test_invalid_values_use_safe_defaults(tmp_path) -> None:
     assert config.backend == "edge"
     assert config.speed == 2.0
     assert config.max_length == 20_000
+
+
+def test_explicit_environment_config_directory(monkeypatch, tmp_path) -> None:
+    monkeypatch.setenv("SPEAK_HELPER_CONFIG_DIR", str(tmp_path))
+    config = Config(locale_name="en_US")
+    config.save()
+
+    assert config.path == tmp_path / "config.json"
+    assert config.path.exists()

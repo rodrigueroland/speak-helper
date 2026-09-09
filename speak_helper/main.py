@@ -6,7 +6,7 @@ import ctypes
 import logging
 import sys
 
-from PySide6.QtCore import QPoint, Qt
+from PySide6.QtCore import QPoint, Qt, QTimer
 from PySide6.QtGui import QImage
 from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
@@ -37,16 +37,39 @@ def _acquire_single_instance() -> bool:
     global _mutex_handle
     if sys.platform != "win32":
         return True
-    kernel32 = ctypes.windll.kernel32
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateMutexW.argtypes = (ctypes.c_void_p, wintypes.BOOL, wintypes.LPCWSTR)
+    kernel32.CreateMutexW.restype = wintypes.HANDLE
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+    kernel32.CloseHandle.restype = wintypes.BOOL
+    ctypes.set_last_error(0)
     handle = kernel32.CreateMutexW(None, True, _MUTEX_NAME)
     if not handle:
         logger.error("single_instance_mutex_failed code=%d", ctypes.get_last_error())
         return True
-    if kernel32.GetLastError() == 183:
+    if ctypes.get_last_error() == 183:
         kernel32.CloseHandle(handle)
         return False
     _mutex_handle = int(handle)
     return True
+
+
+def _release_single_instance() -> None:
+    global _mutex_handle
+    if sys.platform == "win32" and _mutex_handle is not None:
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.ReleaseMutex.argtypes = (wintypes.HANDLE,)
+        kernel32.ReleaseMutex.restype = wintypes.BOOL
+        kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = wintypes.BOOL
+        handle = wintypes.HANDLE(_mutex_handle)
+        kernel32.ReleaseMutex(handle)
+        kernel32.CloseHandle(handle)
+        _mutex_handle = None
 
 
 class SpeakHelperApp:
@@ -313,6 +336,7 @@ class SpeakHelperApp:
         self._ocr.stop()
         self._player.stop()
         self._config.save()
+        _release_single_instance()
 
 
 def main() -> None:
@@ -332,6 +356,8 @@ def main() -> None:
         raise SystemExit(0)
     controller = SpeakHelperApp(application)
     application.aboutToQuit.connect(controller.shutdown)
+    if "--smoke-test" in sys.argv:
+        QTimer.singleShot(1_500, controller.quit)
     raise SystemExit(application.exec())
 
 

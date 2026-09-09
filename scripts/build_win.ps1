@@ -6,7 +6,31 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $PSScriptRoot
+$Root = [System.IO.Path]::GetFullPath($Root)
 Set-Location $Root
+
+function Remove-VerifiedBuildPath {
+    param([Parameter(Mandatory = $true)][string]$RelativePath)
+    $target = [System.IO.Path]::GetFullPath((Join-Path $Root $RelativePath))
+    $workspacePrefix = $Root.TrimEnd([System.IO.Path]::DirectorySeparatorChar) +
+        [System.IO.Path]::DirectorySeparatorChar
+    if (-not $target.StartsWith($workspacePrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Refusing to remove a path outside the repository: $target"
+    }
+    if (Test-Path -LiteralPath $target) {
+        Write-Host "Cleaning $target ..."
+        for ($attempt = 1; $attempt -le 10; $attempt++) {
+            try {
+                Remove-Item -LiteralPath $target -Recurse -Force -ErrorAction Stop
+                break
+            }
+            catch {
+                if ($attempt -eq 10) { throw }
+                Start-Sleep -Milliseconds 300
+            }
+        }
+    }
+}
 
 Write-Host "=== SpeakHelper Windows build ===" -ForegroundColor Cyan
 Write-Host "Working dir: $Root"
@@ -25,14 +49,8 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 
-if (Test-Path "dist\SpeakHelper") {
-    Write-Host "Cleaning dist/SpeakHelper ..."
-    Remove-Item -Recurse -Force "dist\SpeakHelper"
-}
-if (Test-Path "build\speak_helper") {
-    Write-Host "Cleaning build/speak_helper ..."
-    Remove-Item -Recurse -Force "build\speak_helper"
-}
+Remove-VerifiedBuildPath "dist\SpeakHelper"
+Remove-VerifiedBuildPath "build\speak_helper"
 
 $pi = uv run pyinstaller --version 2>&1
 Write-Host "PyInstaller version: $pi"
@@ -51,6 +69,6 @@ Write-Host "Output dir: $outDir"
 Write-Host "Executable: $outDir\SpeakHelper.exe"
 
 $zipName = "SpeakHelper-win64.zip"
-if (Test-Path "dist\$zipName") { Remove-Item "dist\$zipName" }
+if (Test-Path "dist\$zipName") { Remove-Item -LiteralPath "dist\$zipName" }
 Compress-Archive -Path $outDir -DestinationPath "dist\$zipName"
 Write-Host "Zip archive: dist\$zipName" -ForegroundColor Cyan

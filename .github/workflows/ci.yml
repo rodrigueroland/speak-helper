@@ -6,23 +6,64 @@ on:
   pull_request:
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
+  quality:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.13"]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
-          version: "latest"
+          version: "0.12.9"
 
       - name: Set up Python
-        run: uv python install 3.13
+        run: uv python install ${{ matrix.python }}
 
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: uv sync --extra dev
 
-      - name: Run tests
-        run: uv run pytest tests/ -q
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Type check
+        run: uv run mypy speak_helper
+
+      - name: Test
+        run: uv run pytest -q
         env:
           QT_QPA_PLATFORM: offscreen
+
+  windows-build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.12.9"
+      - run: uv python install 3.12
+      - run: uv sync --extra dev
+      - run: uv run python scripts/make_icon.py
+      - run: uv run pyinstaller speak_helper.spec --noconfirm
+      - name: Verify executable
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "dist\SpeakHelper\SpeakHelper.exe")) {
+            throw "Packaged executable was not produced"
+          }
+          $env:SPEAK_HELPER_CONFIG_DIR = Join-Path $env:RUNNER_TEMP "speak-helper-smoke"
+          $process = Start-Process `
+            -FilePath "dist\SpeakHelper\SpeakHelper.exe" `
+            -ArgumentList "--smoke-test" `
+            -WindowStyle Hidden `
+            -Wait `
+            -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Packaged application smoke test failed: $($process.ExitCode)"
+          }

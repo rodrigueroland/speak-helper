@@ -1,18 +1,15 @@
 #!/usr/bin/env bash
-# Speak Helper macOS 打包脚本（PyInstaller）
-# 用法：bash scripts/build_mac.sh
-# 产物：dist/SpeakHelper.app
+# Speak Helper macOS build script.
 
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-echo ">> 安装依赖..."
-pip install -r requirements.txt -q
-pip install pyinstaller -q
+echo ">> Syncing dependencies..."
+uv sync --extra dev
 
-echo ">> 开始打包..."
-pyinstaller \
+echo ">> Building..."
+uv run pyinstaller \
     --noconfirm \
     --onedir \
     --noconsole \
@@ -26,4 +23,4 @@ pyinstaller \
     speak_helper/__main__.py
 
 echo ""
-echo "✅ 打包完成：dist/SpeakHelper.app"
+echo "Build complete: dist/SpeakHelper.app"
