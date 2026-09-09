@@ -67,3 +67,37 @@ def test_reset_replaces_obsolete_queue(qtbot):
 
     assert media.source.toLocalFile().endswith("replacement.mp3")
     assert len(player._queue) == 0
+
+
+def test_stop_removes_only_temporary_audio(qtbot, tmp_path):
+    current = tmp_path / "current.mp3"
+    queued = tmp_path / "queued.mp3"
+    cached = tmp_path / "cached.mp3"
+    for path in (current, queued, cached):
+        path.write_bytes(b"audio")
+    player = AudioPlayer()
+    media = FakeMediaPlayer()
+    player._player = media
+    player.enqueue(str(current), 0, 3, True)
+    player.enqueue(str(queued), 1, 3, True)
+    player.enqueue(str(cached), 2, 3, False)
+
+    player.stop()
+
+    assert not current.exists()
+    assert not queued.exists()
+    assert cached.exists()
+
+
+def test_completed_chunk_releases_its_temporary_file(qtbot, tmp_path):
+    temporary = tmp_path / "completed.mp3"
+    temporary.write_bytes(b"audio")
+    player = AudioPlayer()
+    media = FakeMediaPlayer()
+    player._player = media
+    player.enqueue(str(temporary), 0, 1, True)
+
+    player._on_media_status(QMediaPlayer.MediaStatus.EndOfMedia)
+
+    assert not temporary.exists()
+    assert media.source.isEmpty()

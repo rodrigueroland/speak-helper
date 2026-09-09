@@ -106,8 +106,14 @@ class _ChunkWorker(QObject):
         if config.cache_enabled and cache_file.exists():
             return str(cache_file)
         output = cache_file if config.cache_enabled else _temporary_audio_path("mp3")
-        asyncio.run(self._edge_save(self.chunk, config.edge_voice, rate, str(output)))
+        try:
+            asyncio.run(self._edge_save(self.chunk, config.edge_voice, rate, str(output)))
+        except Exception:
+            if not config.cache_enabled:
+                _remove_temporary_audio(str(output))
+            raise
         if not output.exists() or output.stat().st_size == 0:
+            _remove_temporary_audio(str(output))
             raise RuntimeError("Edge TTS returned an empty audio response")
         if config.cache_enabled:
             self._evict_cache()
@@ -168,7 +174,12 @@ class _ChunkWorker(QObject):
         if not response.content:
             raise RuntimeError("TTS server returned an empty audio response")
         output = cache_file if config.cache_enabled else _temporary_audio_path(config.audio_format)
-        output.write_bytes(response.content)
+        try:
+            output.write_bytes(response.content)
+        except Exception:
+            if not config.cache_enabled:
+                _remove_temporary_audio(str(output))
+            raise
         if config.cache_enabled:
             self._evict_cache()
         return str(output)
@@ -190,10 +201,15 @@ def _temporary_audio_path(extension: str) -> Path:
     return Path(path)
 
 
+def _remove_temporary_audio(path: str) -> None:
+    with contextlib.suppress(OSError):
+        Path(path).unlink()
+
+
 class _PipelineWorker(QObject):
     """Fetch chunks sequentially and emit each as soon as it is ready."""
 
-    chunk_ready = Signal(str, int, int)
+    chunk_ready = Signal(str, int, int, bool)
     error = Signal(str, int, int)
     all_done = Signal()
     completed = Signal()
@@ -214,6 +230,7 @@ class _PipelineWorker(QObject):
                 if self._cancelled:
                     return
                 worker = _ChunkWorker(chunk, index, total, self._config)
+                temporary = not self._config.cache_enabled
                 try:
                     path = worker._fetch()
                 except Exception as exc:
@@ -221,8 +238,10 @@ class _PipelineWorker(QObject):
                         self.error.emit(str(exc), index, total)
                     return
                 if self._cancelled:
+                    if temporary:
+                        _remove_temporary_audio(path)
                     return
-                self.chunk_ready.emit(path, index, total)
+                self.chunk_ready.emit(path, index, total, temporary)
             if not self._cancelled:
                 self.all_done.emit()
         finally:
@@ -233,7 +252,7 @@ class SpeechService(QObject):
     """Own cancellable, chunked synthesis jobs without blocking the UI thread."""
 
     started = Signal()
-    chunk_ready = Signal(str, int, int)
+    chunk_ready = Signal(str, int, int, bool)
     finished = Signal()
     error = Signal(str)
 
@@ -253,7 +272,9 @@ class SpeechService(QObject):
         self._jobs[generation] = (thread, worker)
         thread.started.connect(worker.run)
         worker.chunk_ready.connect(
-            lambda path, index, total, job=generation: self._on_chunk_ready(job, path, index, total)
+            lambda path, index, total, temporary, job=generation: self._on_chunk_ready(
+                job, path, index, total, temporary
+            )
         )
         worker.error.connect(
             lambda message, index, total, job=generation: self._on_error(job, message, index, total)
@@ -288,9 +309,13 @@ class SpeechService(QObject):
         job = self._jobs.pop(generation, None)
         del job
 
-    def _on_chunk_ready(self, generation: int, path: str, index: int, total: int) -> None:
+    def _on_chunk_ready(
+        self, generation: int, path: str, index: int, total: int, temporary: bool
+    ) -> None:
         if generation == self._generation:
-            self.chunk_ready.emit(path, index, total)
+            self.chunk_ready.emit(path, index, total, temporary)
+        elif temporary:
+            _remove_temporary_audio(path)
 
     def _on_error(self, generation: int, message: str, index: int, _total: int) -> None:
         if generation == self._generation:

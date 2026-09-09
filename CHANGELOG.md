@@ -35,6 +35,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Remove non-cached audio after playback, replacement, cancellation, and shutdown
 - Retry temporarily locked/delayed clipboard providers until the configured deadline
 - Report clipboard snapshot, injection, and restoration failures without leaving capture active
 - Keep Windows registry integration type-safe on non-Windows CI hosts

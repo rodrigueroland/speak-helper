@@ -133,9 +133,11 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 
 - Objective: implement immediate replacement, pause, resume, stop, and replay.
 - Decisions: new reads discard obsolete audio; state follows Qt multimedia signals;
-  clear media sources so Windows releases file handles.
+  clear media sources so Windows releases file handles, and explicitly delete only
+  non-cached audio after completion, replacement, cancellation, or shutdown.
 - Files modified: `audio_player.py`, `main.py`, tray and dock UI.
-- Tests added: pause/resume/stop state and queue replacement.
+- Tests added: pause/resume/stop state, queue replacement, temporary-file cleanup,
+  and preservation of cache-owned files.
 - Validation: unit tests and real Edge MP3 playback pass.
 - Remaining issues: packaged-device validation remains in Mission 18.
 
@@ -188,8 +190,9 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 
 - Objective: ensure one instance and deterministic cleanup.
 - Decisions: retain Windows mutex, use the per-user Windows Run key for optional
-  launch at sign-in, and explicitly stop capture, hotkeys, OCR, speech, and media
-  during idempotent shutdown. Registry writes occur only when Settings is saved.
+  launch at sign-in, explicitly stop capture, hotkeys, OCR, speech, and media during
+  idempotent shutdown, and remove non-cached audio artifacts. Registry writes occur
+  only when Settings is saved.
 - Files modified: `main.py`, `startup_service.py`, Settings, configuration, and
   localization catalogs.
 - Tests added: command quoting, unsupported-platform behavior, mocked Windows
@@ -204,7 +207,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 80 total test cases across configuration, localization, hotkeys, clipboard,
+- Tests added: 84 total test cases across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: none for automated service and UI boundaries; named-application

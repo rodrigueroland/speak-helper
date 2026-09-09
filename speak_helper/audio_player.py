@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 from collections import deque
+from contextlib import suppress
+from pathlib import Path
 
 from PySide6.QtCore import QObject, QUrl, Signal
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
@@ -27,7 +29,8 @@ class AudioPlayer(QObject):
         self._player.setAudioOutput(self._audio_output)
         self._audio_output.setVolume(1.0)
 
-        self._queue: deque[tuple[str, int, int]] = deque()  # (path, idx, total)
+        self._queue: deque[tuple[str, int, int, bool]] = deque()
+        self._current_temporary: Path | None = None
         self._playing = False
         self._paused = False
         self._started_emitted = False
@@ -39,9 +42,9 @@ class AudioPlayer(QObject):
 
     # ── public API ────────────────────────────────────────────────────────────
 
-    def enqueue(self, path: str, chunk_idx: int, total: int) -> None:
+    def enqueue(self, path: str, chunk_idx: int, total: int, temporary: bool = False) -> None:
         """Enqueue a synthesized chunk and start immediately when idle."""
-        self._queue.append((path, chunk_idx, total))
+        self._queue.append((path, chunk_idx, total, temporary))
         logger.debug(
             "enqueue idx=%d/%d path=%s queue_len=%d", chunk_idx, total, path, len(self._queue)
         )
@@ -51,12 +54,13 @@ class AudioPlayer(QObject):
     def stop(self) -> None:
         """Stop immediately and discard obsolete queued speech."""
         was_active = self._playing or self._paused or bool(self._queue)
-        self._queue.clear()
+        self._discard_queue()
         self._playing = False
         self._paused = False
         self._started_emitted = False
         self._player.stop()
         self._player.setSource(QUrl())
+        self._discard_current()
         if was_active:
             self.playback_stopped.emit()
 
@@ -86,32 +90,49 @@ class AudioPlayer(QObject):
 
     def reset(self) -> None:
         """Replace current playback with a new manual reading."""
-        self._queue.clear()
+        self._discard_queue()
         self._playing = False
         self._paused = False
         self._started_emitted = False
         self._player.stop()
         self._player.setSource(QUrl())
+        self._discard_current()
 
     # ── private ───────────────────────────────────────────────────────────────
 
     def _play_next(self) -> None:
+        self._player.setSource(QUrl())
+        self._discard_current()
         if not self._queue:
             self._playing = False
-            self._player.setSource(QUrl())
             logger.debug("queue empty → playback_finished")
             self.playback_finished.emit()
             return
 
-        path, idx, total = self._queue.popleft()
+        path, idx, total, temporary = self._queue.popleft()
         logger.debug("play_next idx=%d/%d path=%s", idx, total, path)
 
         self.chunk_started.emit(idx, total)
 
         # Mark playback active before setSource, whose callbacks may run synchronously.
         self._playing = True
+        self._current_temporary = Path(path) if temporary else None
         self._player.setSource(QUrl.fromLocalFile(path))
         self._player.play()
+
+    def _discard_current(self) -> None:
+        path = self._current_temporary
+        self._current_temporary = None
+        if path is not None:
+            with suppress(OSError):
+                path.unlink()
+
+    def _discard_queue(self) -> None:
+        while self._queue:
+            path, _idx, _total, temporary = self._queue.popleft()
+            if temporary:
+                with suppress(OSError):
+                    Path(path).unlink()
 
     def _on_media_status(self, status: QMediaPlayer.MediaStatus) -> None:
         logger.debug("mediaStatus=%s playing=%s", status, self._playing)

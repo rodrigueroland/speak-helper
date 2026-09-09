@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -187,3 +187,37 @@ def test_empty_audio_response_is_rejected(tmp_path):
         worker.run()
 
     assert errors == ["TTS server returned an empty audio response"]
+
+
+def test_obsolete_temporary_chunk_is_removed(tmp_path):
+    from speak_helper.speech_service import SpeechService
+
+    path = tmp_path / "obsolete.mp3"
+    path.write_bytes(b"audio")
+    service = SpeechService(_make_config(tmp_path))
+    service._generation = 1
+
+    service._on_chunk_ready(0, str(path), 0, 1, True)
+
+    assert not path.exists()
+
+
+def test_failed_edge_synthesis_removes_partial_temporary_file(tmp_path):
+    from speak_helper.speech_service import _ChunkWorker
+
+    config = _make_config(tmp_path)
+    config.backend = "edge"
+    config.edge_voice = "en-US-AriaNeural"
+    config.cache_enabled = False
+    partial = tmp_path / "partial.mp3"
+    partial.write_bytes(b"partial")
+    worker = _ChunkWorker("hello", 0, 1, config)
+
+    with (
+        patch("speak_helper.speech_service._temporary_audio_path", return_value=partial),
+        patch.object(worker, "_edge_save", AsyncMock(side_effect=RuntimeError("failed"))),
+        pytest.raises(RuntimeError, match="failed"),
+    ):
+        worker._fetch_edge()
+
+    assert not partial.exists()
