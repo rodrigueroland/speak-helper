@@ -7,8 +7,9 @@ import logging
 import sys
 import time
 from collections.abc import Callable
+from ctypes import wintypes
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 from PySide6.QtCore import QMimeData, QObject, QTimer, Signal
 from PySide6.QtGui import QClipboard, QGuiApplication
@@ -79,41 +80,42 @@ class QtClipboardAdapter:
         self._clipboard.setMimeData(mime)
 
 
-if sys.platform == "win32":
-    from ctypes import wintypes
+class _KEYBDINPUT(ctypes.Structure):
+    _fields_ = (
+        ("wVk", wintypes.WORD),
+        ("wScan", wintypes.WORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", wintypes.WPARAM),
+    )
 
-    class _KEYBDINPUT(ctypes.Structure):
-        _fields_ = (
-            ("wVk", wintypes.WORD),
-            ("wScan", wintypes.WORD),
-            ("dwFlags", wintypes.DWORD),
-            ("time", wintypes.DWORD),
-            ("dwExtraInfo", wintypes.WPARAM),
-        )
 
-    class _MOUSEINPUT(ctypes.Structure):
-        _fields_ = (
-            ("dx", wintypes.LONG),
-            ("dy", wintypes.LONG),
-            ("mouseData", wintypes.DWORD),
-            ("dwFlags", wintypes.DWORD),
-            ("time", wintypes.DWORD),
-            ("dwExtraInfo", wintypes.WPARAM),
-        )
+class _MOUSEINPUT(ctypes.Structure):
+    _fields_ = (
+        ("dx", wintypes.LONG),
+        ("dy", wintypes.LONG),
+        ("mouseData", wintypes.DWORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", wintypes.WPARAM),
+    )
 
-    class _HARDWAREINPUT(ctypes.Structure):
-        _fields_ = (
-            ("uMsg", wintypes.DWORD),
-            ("wParamL", wintypes.WORD),
-            ("wParamH", wintypes.WORD),
-        )
 
-    class _INPUTUNION(ctypes.Union):
-        _fields_ = (("mi", _MOUSEINPUT), ("ki", _KEYBDINPUT), ("hi", _HARDWAREINPUT))
+class _HARDWAREINPUT(ctypes.Structure):
+    _fields_ = (
+        ("uMsg", wintypes.DWORD),
+        ("wParamL", wintypes.WORD),
+        ("wParamH", wintypes.WORD),
+    )
 
-    class _INPUT(ctypes.Structure):
-        _anonymous_ = ("union",)
-        _fields_ = (("type", wintypes.DWORD), ("union", _INPUTUNION))
+
+class _INPUTUNION(ctypes.Union):
+    _fields_ = (("mi", _MOUSEINPUT), ("ki", _KEYBDINPUT), ("hi", _HARDWAREINPUT))
+
+
+class _INPUT(ctypes.Structure):
+    _anonymous_ = ("union",)
+    _fields_ = (("type", wintypes.DWORD), ("union", _INPUTUNION))
 
 
 class WindowsCopyInjector:
@@ -123,6 +125,7 @@ class WindowsCopyInjector:
     KEYEVENTF_KEYUP = 0x0002
     VK_CONTROL = 0x11
     VK_C = 0x43
+    _send_input: Any
 
     def __init__(self) -> None:
         if sys.platform != "win32":

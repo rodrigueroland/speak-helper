@@ -7,6 +7,7 @@ import logging
 import string
 import sys
 from collections.abc import Callable, Mapping
+from ctypes import wintypes
 from dataclasses import dataclass
 from typing import Any, ClassVar, Protocol
 
@@ -110,18 +111,26 @@ class HotkeyRegistrar(Protocol):
     def unregister_all(self) -> None: ...
 
 
-if sys.platform == "win32":
-    from ctypes import wintypes
+class _MSG(ctypes.Structure):
+    _fields_ = (
+        ("hwnd", wintypes.HWND),
+        ("message", wintypes.UINT),
+        ("wParam", wintypes.WPARAM),
+        ("lParam", wintypes.LPARAM),
+        ("time", wintypes.DWORD),
+        ("pt", wintypes.POINT),
+    )
 
-    class _MSG(ctypes.Structure):
-        _fields_ = (
-            ("hwnd", wintypes.HWND),
-            ("message", wintypes.UINT),
-            ("wParam", wintypes.WPARAM),
-            ("lParam", wintypes.LPARAM),
-            ("time", wintypes.DWORD),
-            ("pt", wintypes.POINT),
-        )
+
+def _set_last_error(value: int) -> None:
+    setter: Callable[[int], None] | None = getattr(ctypes, "set_last_error", None)
+    if setter is not None:
+        setter(value)
+
+
+def _get_last_error() -> int:
+    getter: Callable[[], int] | None = getattr(ctypes, "get_last_error", None)
+    return getter() if getter is not None else 0
 
 
 class WindowsNativeHotkeyRegistrar(QAbstractNativeEventFilter):
@@ -157,6 +166,8 @@ class WindowsNativeHotkeyRegistrar(QAbstractNativeEventFilter):
         "insert": 0x2D,
         "delete": 0x2E,
     }
+    _user32: Any
+    _installed: bool
 
     def __init__(self) -> None:
         super().__init__()
@@ -207,9 +218,9 @@ class WindowsNativeHotkeyRegistrar(QAbstractNativeEventFilter):
             except (KeyError, ValueError) as exc:
                 results.append(RegistrationResult(action, combo, False, reason=str(exc)))
                 continue
-            ctypes.set_last_error(0)
+            _set_last_error(0)
             registered = bool(self._user32.RegisterHotKey(None, identifier, modifiers, virtual_key))
-            error_code = ctypes.get_last_error() if not registered else 0
+            error_code = _get_last_error() if not registered else 0
             if registered:
                 self._actions_by_id[identifier] = action
             results.append(
