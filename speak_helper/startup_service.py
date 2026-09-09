@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import importlib
 import subprocess
 import sys
 from dataclasses import dataclass
+from typing import Any
 
 _RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
 _VALUE_NAME = "Speak Helper"
@@ -52,7 +54,7 @@ class StartupService:
     def is_enabled(self) -> bool:
         if not self.supported:
             return False
-        import winreg
+        winreg: Any = importlib.import_module("winreg")
 
         try:
             with winreg.OpenKey(winreg.HKEY_CURRENT_USER, _RUN_KEY) as key:
@@ -65,7 +67,7 @@ class StartupService:
         if not self.supported:
             return StartupResult(not enabled, "unsupported platform" if enabled else "")
 
-        import winreg
+        winreg: Any = importlib.import_module("winreg")
 
         try:
             if enabled:
