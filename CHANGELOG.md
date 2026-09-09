@@ -32,7 +32,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - Keep Windows registry integration type-safe on non-Windows CI hosts
-- Update CI actions to their Node.js 24-compatible major versions
+- Update CI actions to current Node.js 24-compatible releases
 - Wrap long diagnostic paths instead of clipping them in the Settings viewport
 - Make checkbox states visible and keyboard-discoverable in both themes
 - Replaced the unreliable Qt timer created from a plain hotkey thread
