@@ -19,6 +19,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Loopback HTTP integration coverage for custom and Qwen-compatible servers
 - OCR response, authentication, and cancellation coverage
 - Optional per-user Windows launch-at-login integration
+- Packaged `--tts-probe` for end-to-end synthesis and playback validation
 
 ### Changed
 

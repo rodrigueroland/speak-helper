@@ -51,6 +51,11 @@ Run every local quality gate:
 .\scripts\check.ps1
 ```
 
+To validate synthesis and audio playback end to end with the currently configured
+backend, run `SpeakHelper.exe --tts-probe` (or
+`uv run python -m speak_helper --tts-probe` in development). Exit code `0` means
+that synthesis completed and Qt started and finished playback.
+
 ## Default shortcuts
 
 | Action | Shortcut |

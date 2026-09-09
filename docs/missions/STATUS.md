@@ -219,8 +219,9 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
   HTTP, keyring, Pillow, and pynput fallbacks; validate cleanup targets before removal.
 - Files modified: `speak_helper.spec`, `scripts/build_win.ps1`, `scripts/build_mac.sh`.
 - Tests added: packaged `--smoke-test` mode with isolated configuration directory.
-- Validation: Windows build and ZIP succeeded; packaged executable exited 0 and
-  produced config plus structured logs without a development Python runtime.
+- Validation: Windows build and ZIP succeeded; the rebuilt executable passes both
+  `--smoke-test` and live Edge synthesis/audio `--tts-probe` with exit code 0,
+  producing isolated config/logs without a development Python runtime.
 - Remaining issues: signing/antivirus and packaged workflow testing remain release tasks.
 
 ## Mission 20 — Documentation — DONE

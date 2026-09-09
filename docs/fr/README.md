@@ -65,6 +65,10 @@ voix françaises de France, Belgique et Canada, ainsi que des voix anglaises.
 
 Utilisez **Tester la synthèse vocale** pour vérifier la configuration.
 
+Pour une validation automatisable de toute la chaîne avec le moteur configuré,
+lancez `SpeakHelper.exe --tts-probe`. Le code de sortie `0` confirme la synthèse,
+le démarrage de la lecture Qt et sa fin normale.
+
 ### Serveur compatible OpenAI
 
 Le moteur générique envoie :

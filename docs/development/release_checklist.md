@@ -51,7 +51,7 @@ release commit and packaged artifact.
 - [x] Packaged executable `--smoke-test` exits with code 0
 - [x] Packaged config and structured log created in isolated user directory
 - [ ] Packaged selected-text hotkey test
-- [ ] Packaged Edge-TTS synthesis and playback test
+- [x] Packaged Edge-TTS synthesis and playback test (`--tts-probe`, exit 0)
 - [ ] Fresh Windows user-profile test
 - [ ] Antivirus/signing review
 

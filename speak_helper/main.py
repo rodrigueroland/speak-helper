@@ -35,6 +35,42 @@ _MUTEX_NAME = "Global\\SpeakHelper_SingleInstance_Mutex"
 _mutex_handle: int | None = None
 
 
+def _run_tts_probe(application: QApplication, config: Config, translator: Translator) -> int:
+    """Synthesize and play a short phrase, returning a process-friendly status code."""
+    speech = SpeechService(config)
+    player = AudioPlayer()
+    exit_code = 2
+    completed = False
+
+    def finish(code: int) -> None:
+        nonlocal completed, exit_code
+        if completed:
+            return
+        completed = True
+        exit_code = code
+        application.quit()
+
+    def speech_failed(reason: str) -> None:
+        logger.error("tts_probe_failed reason=%s", reason)
+        finish(1)
+
+    def audio_failed(reason: str) -> None:
+        logger.error("tts_probe_audio_failed reason=%s", reason)
+        finish(1)
+
+    speech.started.connect(player.reset)
+    speech.chunk_ready.connect(player.enqueue)
+    speech.error.connect(speech_failed)
+    player.error.connect(audio_failed)
+    player.playback_finished.connect(lambda: finish(0))
+    QTimer.singleShot((config.timeout_sec + 30) * 1_000, lambda: finish(2))
+    speech.speak(translator.text("test.tts_phrase"))
+    application.exec()
+    speech.shutdown()
+    player.stop()
+    return exit_code
+
+
 def _acquire_single_instance() -> bool:
     """Acquire the Windows process mutex; other platforms currently pass through."""
     global _mutex_handle
@@ -359,6 +395,8 @@ def main() -> None:
     application.setApplicationVersion(__version__)
     config = Config()
     translator = Translator(config)
+    if "--tts-probe" in sys.argv:
+        raise SystemExit(_run_tts_probe(application, config, translator))
     if not _acquire_single_instance():
         QMessageBox.warning(
             None, translator.text("app.name"), translator.text("app.already_running")
