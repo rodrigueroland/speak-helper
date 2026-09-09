@@ -227,6 +227,8 @@ class SettingsDialog(QDialog):
     @staticmethod
     def _page() -> tuple[QWidget, QVBoxLayout]:
         page = QWidget()
+        page.setMinimumWidth(0)
+        page.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         layout = QVBoxLayout(page)
         layout.setContentsMargins(28, 24, 28, 24)
         layout.setSpacing(14)
