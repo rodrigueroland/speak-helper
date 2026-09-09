@@ -223,15 +223,16 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Validation: links and claims reviewed against the implemented paths and test matrix.
 - Remaining issues: refresh screenshots and release notes for the final version tag.
 
-## Mission 21 — GitHub CI — IN PROGRESS
+## Mission 21 — GitHub CI — DONE
 
 - Objective: keep lint, typing, tests, and Windows packaging repeatable in GitHub.
 - Decisions: small Python 3.11/3.13 Linux/Windows matrix plus one Python 3.12
   packaged build/smoke job; pin uv action input.
 - Files modified: `.github/workflows/ci.yml`.
 - Tests added: packaged bounded launch in the Windows job.
-- Validation: equivalent local commands and packaged smoke pass.
-- Remaining issues: push and confirm the hosted GitHub workflow is green.
+- Validation: hosted run 34396262540 passed all four Linux/Windows quality jobs
+  and the Windows packaged executable smoke job.
+- Remaining issues: none for the current workflow scope.
 
 ## Mission 22 — Release readiness — IN PROGRESS
 

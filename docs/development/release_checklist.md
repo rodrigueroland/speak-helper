@@ -11,7 +11,7 @@ release commit and packaged artifact.
 - [x] mypy
 - [x] pytest (43 tests on Windows/Python 3.12)
 - [x] Windows native selection probe, 10/10 consecutive captures
-- [ ] GitHub Actions green on Linux and Windows, Python 3.11 and 3.13
+- [x] GitHub Actions green on Linux and Windows, Python 3.11 and 3.13
 
 ## Application behavior
 
