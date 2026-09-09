@@ -14,6 +14,7 @@ from . import __version__
 from .audio_player import AudioPlayer
 from .clipboard_watcher import ClipboardWatcher
 from .config import Config
+from .error_messages import localize_audio_error, localize_ocr_error, localize_speech_error
 from .hotkey_service import ACTION_READ, HotkeyService
 from .i18n import Translator
 from .logging_config import configure_logging
@@ -226,7 +227,7 @@ class SpeakHelperApp:
             if reason == "hotkey conflict" and result is not None:
                 message = self._translator.text("error.hotkey_conflict", hotkey=result.hotkey)
             else:
-                message = self._translator.text("error.hotkey_unavailable", reason=reason)
+                message = self._translator.text("error.hotkey_unavailable")
             self._set_state("error", message)
             self._tray.show_message(
                 self._translator.text("error.title"),
@@ -235,30 +236,33 @@ class SpeakHelperApp:
             )
 
     def _on_hotkey_error(self, reason: str) -> None:
-        self._set_state("error", reason)
+        message = self._translator.text("error.hotkey_unavailable")
+        logger.error("hotkey_unavailable reason=%s", reason)
+        self._set_state("error", message)
         self._tray.show_message(
             self._translator.text("error.title"),
-            self._translator.text("error.hotkey_unavailable", reason=reason),
+            message,
             QSystemTrayIcon.MessageIcon.Critical,
         )
 
     def _on_speech_error(self, reason: str) -> None:
         logger.error("tts_request_failed reason=%s", reason)
-        message = self._translator.text("error.speech", reason=reason)
-        self._set_state("error", reason)
+        message = localize_speech_error(self._translator, reason)
+        self._set_state("error", message)
         self._tray.show_message(
             self._translator.text("error.title"), message, QSystemTrayIcon.MessageIcon.Critical
         )
 
     def _on_player_error(self, code: str) -> None:
-        message = self._translator.text(f"error.{code}")
+        message = localize_audio_error(self._translator, code)
         self._set_state("error", message)
         self._tray.show_message(self._translator.text("error.title"), message)
 
     def _on_ocr_error(self, reason: str) -> None:
         logger.error("ocr_failed reason=%s", reason)
-        self._set_state("error", reason)
-        self._tray.show_message(self._translator.text("error.title"), reason)
+        message = localize_ocr_error(self._translator, reason)
+        self._set_state("error", message)
+        self._tray.show_message(self._translator.text("error.title"), message)
 
     def _set_mode(self, mode: str) -> None:
         self._config.set("trigger", "mode", mode)

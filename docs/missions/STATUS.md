@@ -34,10 +34,10 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use one observable translation service and centralized catalogs;
   retain English technical logs.
 - Files modified: `speak_helper/i18n.py` and all modules under `speak_helper/ui/`.
-- Tests added: catalog parity, fallback, persistence, and Settings runtime switch.
+- Tests added: catalog parity, fallback, persistence, Settings runtime switch, and
+  safe localized service-error classification.
 - Validation: native Windows renders inspected in English and French.
-- Remaining issues: normalize network/OCR error details into localized messages and
-  finish the production string audit.
+- Remaining issues: finish the production string audit, including voice display names.
 
 ## Mission 3 — Configuration migration — DONE
 
@@ -185,7 +185,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 43 total tests across configuration, localization, hotkeys, clipboard,
+- Tests added: 49 total tests across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: OCR, diagnostics, HTTP status, and more UI coverage.

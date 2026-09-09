@@ -37,6 +37,7 @@ from ..audio_player import AudioPlayer
 from ..clipboard_watcher import ClipboardWatcher
 from ..config import Config
 from ..diagnostics import collect_diagnostics, format_diagnostics
+from ..error_messages import localize_speech_error
 from ..hotkey_service import HotkeyService
 from ..i18n import Translator
 from .theme import LIGHT, application_stylesheet
@@ -627,8 +628,9 @@ class SettingsDialog(QDialog):
     def _test_finished(self, success: bool, duration_ms: int, reason: str) -> None:
         self._test_tts_button.setEnabled(True)
         key = "test.success" if success else "test.failed"
+        user_reason = reason if success else localize_speech_error(self._translator, reason)
         self._test_result.setText(
-            self._translator.text(key, duration_ms=duration_ms, reason=reason)
+            self._translator.text(key, duration_ms=duration_ms, reason=user_reason)
         )
         self._test_result.setStyleSheet(
             f"color:{LIGHT.success if success else LIGHT.error};font-weight:600;"
