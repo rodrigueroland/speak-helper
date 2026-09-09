@@ -1,71 +1,53 @@
-"""TTS 服务：分句 → 流水线请求 → 逐块返回音频
-流程：
-  text → split_sentences → [chunk1, chunk2, ...] → _PipelineWorker(QThread)
-                                                      ↓ 每完成一块
-                                               chunk_ready(path, idx, total)
-                                                      ↓
-                                               AudioPlayer.enqueue(path)  （边下边播）
-"""
+"""Chunked Edge and OpenAI-compatible text-to-speech pipeline."""
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
+import os
 import re
 import tempfile
 from pathlib import Path
-from typing import List
 
 import httpx
 from PySide6.QtCore import QObject, QThread, Signal
 
 from .config import Config
 
-# ── 分句工具 ──────────────────────────────────────────────────────────────────
-
-# 句末标点（中英文）
-_SENT_END = re.compile(r'(?<=[。！？…!?])\s*')
-# 段落分隔
-_PARA_SEP = re.compile(r'\n\s*\n')
+_SENT_END = re.compile(r"(?<=[.!?…。！？])\s+")  # noqa: RUF001
+_PARA_SEP = re.compile(r"\n\s*\n")
+_SUPPORTED_AUDIO_FORMATS = {"mp3", "wav", "opus", "aac", "flac", "pcm"}
 
 
-def split_sentences(text: str) -> List[str]:
-    """将文本拆分为句子列表"""
-    parts: List[str] = []
-    for para in _PARA_SEP.split(text):
-        for sent in _SENT_END.split(para):
-            s = sent.strip()
-            if s:
-                parts.append(s)
+def split_sentences(text: str) -> list[str]:
+    """Split text at common English, French, and CJK sentence boundaries."""
+    parts: list[str] = []
+    for paragraph in _PARA_SEP.split(text):
+        parts.extend(
+            sentence.strip() for sentence in _SENT_END.split(paragraph) if sentence.strip()
+        )
     return parts
 
 
-def make_chunks(sentences: List[str], n: int) -> List[str]:
-    """将句子列表每 n 句合并为一块"""
+def make_chunks(sentences: list[str], size: int) -> list[str]:
+    """Group sentences into low-latency synthesis requests."""
     if not sentences:
-        return [" "]  # 空文本也给一个占位块
-    chunks = []
-    for i in range(0, len(sentences), n):
-        chunk = "".join(sentences[i : i + n]).strip()
-        if chunk:
-            chunks.append(chunk)
-    return chunks or [sentences[0]]
+        return [" "]
+    chunks = [
+        " ".join(sentences[index : index + size]).strip()
+        for index in range(0, len(sentences), size)
+    ]
+    return [chunk for chunk in chunks if chunk] or [sentences[0]]
 
-
-# ── 单块 TTS Worker ───────────────────────────────────────────────────────────
 
 class _ChunkWorker(QObject):
-    """在独立线程中请求单块音频"""
+    """Fetch one audio chunk from the selected backend."""
 
-    chunk_ready = Signal(str, int, int)   # (audio_path, chunk_idx, total)
-    error       = Signal(str, int, int)   # (msg, chunk_idx, total)
+    chunk_ready = Signal(str, int, int)
+    error = Signal(str, int, int)
 
-    def __init__(
-        self,
-        chunk: str,
-        idx: int,
-        total: int,
-        config: Config,
-    ) -> None:
+    def __init__(self, chunk: str, idx: int, total: int, config: Config) -> None:
         super().__init__()
         self.chunk = chunk
         self.idx = idx
@@ -88,118 +70,110 @@ class _ChunkWorker(QObject):
                 self.error.emit(str(exc), self.idx, self.total)
 
     def _fetch(self) -> str:
-        if self.config.backend == "edge":
-            return self._fetch_edge()
-        return self._fetch_openai()
-
-    # ── Edge-TTS 后端 ─────────────────────────────────────────────────────────
+        return self._fetch_edge() if self.config.backend == "edge" else self._fetch_openai()
 
     def _fetch_edge(self) -> str:
-        cfg = self.config
-        voice = cfg.edge_voice
-        # speed → edge-tts rate 字符串：1.2 → "+20%"
-        rate_pct = int(round((cfg.speed - 1.0) * 100))
-        rate_str = f"+{rate_pct}%" if rate_pct >= 0 else f"{rate_pct}%"
-
+        config = self.config
+        rate_percent = round((config.speed - 1.0) * 100)
+        rate = f"+{rate_percent}%" if rate_percent >= 0 else f"{rate_percent}%"
         cache_key = hashlib.sha1(
-            f"edge|{self.chunk}|{voice}|{rate_str}".encode("utf-8", errors="replace")
+            f"edge|{self.chunk}|{config.edge_voice}|{rate}".encode("utf-8", errors="replace")
         ).hexdigest()
-
-        if cfg.cache_enabled:
-            cache_file = cfg.cache_dir / f"{cache_key}.mp3"
-            if cache_file.exists():
-                return str(cache_file)
-
-        out_path = (
-            cfg.cache_dir / f"{cache_key}.mp3"
-            if cfg.cache_enabled
-            else Path(tempfile.mktemp(suffix=".mp3"))
-        )
-        # edge-tts 是异步库，在工作线程里用独立事件循环调用
-        asyncio.run(self._edge_save(self.chunk, voice, rate_str, str(out_path)))
-
-        if cfg.cache_enabled:
+        cache_file = config.cache_dir / f"{cache_key}.mp3"
+        if config.cache_enabled and cache_file.exists():
+            return str(cache_file)
+        output = cache_file if config.cache_enabled else _temporary_audio_path("mp3")
+        asyncio.run(self._edge_save(self.chunk, config.edge_voice, rate, str(output)))
+        if not output.exists() or output.stat().st_size == 0:
+            raise RuntimeError("Edge TTS returned an empty audio response")
+        if config.cache_enabled:
             self._evict_cache()
-        return str(out_path)
+        return str(output)
 
     @staticmethod
-    async def _edge_save(text: str, voice: str, rate: str, out_path: str) -> None:
+    async def _edge_save(text: str, voice: str, rate: str, output: str) -> None:
         import edge_tts
-        communicate = edge_tts.Communicate(text, voice, rate=rate)
-        await communicate.save(out_path)
 
-    # ── OpenAI 兼容后端 ───────────────────────────────────────────────────────
+        await edge_tts.Communicate(text, voice, rate=rate).save(output)
 
     def _fetch_openai(self) -> str:
-        cfg = self.config
+        config = self.config
+        if config.audio_format not in _SUPPORTED_AUDIO_FORMATS:
+            raise ValueError(f"Unsupported audio format: {config.audio_format}")
         cache_key = hashlib.sha1(
-            f"{self.chunk}|{cfg.voice}|{cfg.model}|{cfg.speed}|{cfg.audio_format}"
-            .encode("utf-8", errors="replace")
+            (
+                f"{config.base_url}|{self.chunk}|{config.voice}|{config.model}|"
+                f"{config.speed}|{config.audio_format}"
+            ).encode("utf-8", errors="replace")
         ).hexdigest()
+        cache_file = config.cache_dir / f"{cache_key}.{config.audio_format}"
+        if config.cache_enabled and cache_file.exists():
+            return str(cache_file)
 
-        if cfg.cache_enabled:
-            cache_file = cfg.cache_dir / f"{cache_key}.{cfg.audio_format}"
-            if cache_file.exists():
-                return str(cache_file)
+        headers = {"Content-Type": "application/json"}
+        if config.api_key:
+            headers["Authorization"] = f"Bearer {config.api_key}"
+        endpoint = f"{config.base_url.rstrip('/')}/audio/speech"
+        try:
+            with httpx.Client(timeout=config.timeout_sec) as client:
+                response = client.post(
+                    endpoint,
+                    headers=headers,
+                    json={
+                        "model": config.model,
+                        "input": self.chunk,
+                        "voice": config.voice,
+                        "speed": config.speed,
+                        "response_format": config.audio_format,
+                    },
+                )
+                response.raise_for_status()
+        except httpx.ConnectError as exc:
+            raise RuntimeError(f"Connection refused by {endpoint}") from exc
+        except httpx.TimeoutException as exc:
+            raise RuntimeError(f"Request timed out after {config.timeout_sec} seconds") from exc
+        except httpx.HTTPStatusError as exc:
+            raise RuntimeError(f"TTS server returned HTTP {exc.response.status_code}") from exc
 
-        headers = {
-            "Authorization": f"Bearer {cfg.api_key}",
-            "Content-Type": "application/json",
-        }
-        payload: dict = {
-            "model": cfg.model,
-            "input": self.chunk,
-            "voice": cfg.voice,
-            "speed": cfg.speed,
-            "response_format": cfg.audio_format,
-        }
-
-        with httpx.Client(timeout=cfg.timeout_sec) as client:
-            resp = client.post(
-                f"{cfg.base_url.rstrip('/')}/audio/speech",
-                headers=headers,
-                json=payload,
-            )
-            resp.raise_for_status()
-            audio_bytes = resp.content
-
-        if cfg.cache_enabled:
-            out_path = cfg.cache_dir / f"{cache_key}.{cfg.audio_format}"
-            out_path.write_bytes(audio_bytes)
+        content_type = response.headers.get("content-type", "")
+        if content_type and not (
+            content_type.startswith("audio/") or content_type == "application/octet-stream"
+        ):
+            raise RuntimeError(f"TTS server returned unsupported content type: {content_type}")
+        if not response.content:
+            raise RuntimeError("TTS server returned an empty audio response")
+        output = cache_file if config.cache_enabled else _temporary_audio_path(config.audio_format)
+        output.write_bytes(response.content)
+        if config.cache_enabled:
             self._evict_cache()
-            return str(out_path)
-        else:
-            tmp = tempfile.NamedTemporaryFile(
-                suffix=f".{cfg.audio_format}", delete=False
-            )
-            tmp.write(audio_bytes)
-            tmp.close()
-            return tmp.name
+        return str(output)
 
     def _evict_cache(self) -> None:
-        cache_dir = self.config.cache_dir
-        max_bytes = self.config.cache_max_mb * 1024 * 1024
-        files = sorted(cache_dir.glob("*"), key=lambda p: p.stat().st_mtime)
-        total = sum(p.stat().st_size for p in files)
-        while total > max_bytes and files:
+        files = sorted(self.config.cache_dir.glob("*"), key=lambda path: path.stat().st_mtime)
+        total = sum(path.stat().st_size for path in files)
+        maximum = self.config.cache_max_mb * 1024 * 1024
+        while total > maximum and files:
             oldest = files.pop(0)
             total -= oldest.stat().st_size
-            try:
+            with contextlib.suppress(OSError):
                 oldest.unlink()
-            except OSError:
-                pass
 
 
-# ── 流水线调度器（顺序请求所有块）────────────────────────────────────────────
+def _temporary_audio_path(extension: str) -> Path:
+    handle, path = tempfile.mkstemp(suffix=f".{extension}")
+    os.close(handle)
+    return Path(path)
+
 
 class _PipelineWorker(QObject):
-    """在独立线程中顺序请求所有分块，每块完成后立即发出信号（边下边播）"""
+    """Fetch chunks sequentially and emit each as soon as it is ready."""
 
-    chunk_ready = Signal(str, int, int)   # (path, idx, total)
-    error       = Signal(str, int, int)
-    all_done    = Signal()
+    chunk_ready = Signal(str, int, int)
+    error = Signal(str, int, int)
+    all_done = Signal()
+    completed = Signal()
 
-    def __init__(self, chunks: List[str], config: Config) -> None:
+    def __init__(self, chunks: list[str], config: Config) -> None:
         super().__init__()
         self._chunks = chunks
         self._config = config
@@ -209,92 +183,91 @@ class _PipelineWorker(QObject):
         self._cancelled = True
 
     def run(self) -> None:
-        total = len(self._chunks)
-        for idx, chunk in enumerate(self._chunks):
-            if self._cancelled:
-                return
-            worker = _ChunkWorker(chunk, idx, total, self._config)
-            # 同步调用（在同一线程内执行，避免嵌套线程）
-            try:
-                path = worker._fetch()
-            except Exception as exc:
-                if not self._cancelled:
-                    self.error.emit(str(exc), idx, total)
-                return
-            if self._cancelled:
-                return
-            self.chunk_ready.emit(path, idx, total)
+        try:
+            total = len(self._chunks)
+            for index, chunk in enumerate(self._chunks):
+                if self._cancelled:
+                    return
+                worker = _ChunkWorker(chunk, index, total, self._config)
+                try:
+                    path = worker._fetch()
+                except Exception as exc:
+                    if not self._cancelled:
+                        self.error.emit(str(exc), index, total)
+                    return
+                if self._cancelled:
+                    return
+                self.chunk_ready.emit(path, index, total)
+            if not self._cancelled:
+                self.all_done.emit()
+        finally:
+            self.completed.emit()
 
-        if not self._cancelled:
-            self.all_done.emit()
-
-
-# ── 对外接口 ──────────────────────────────────────────────────────────────────
 
 class SpeechService(QObject):
-    """分句、流水线 TTS 请求；每块音频就绪时发出 chunk_ready 信号"""
+    """Own cancellable, chunked synthesis jobs without blocking the UI thread."""
 
-    started      = Signal()
-    chunk_ready  = Signal(str, int, int)   # (path, chunk_idx, total_chunks)
-    finished     = Signal()
-    error        = Signal(str)
+    started = Signal()
+    chunk_ready = Signal(str, int, int)
+    finished = Signal()
+    error = Signal(str)
 
     def __init__(self, config: Config, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._config = config
-        self._thread: QThread | None = None
-        self._worker: _PipelineWorker | None = None
+        self._generation = 0
+        self._jobs: dict[int, tuple[QThread, _PipelineWorker]] = {}
 
     def speak(self, text: str) -> None:
         self._cancel_current()
-
-        sentences = split_sentences(text)
-        chunks = make_chunks(sentences, self._config.sentences_per_chunk)
-
-        self._thread = QThread(self)
-        self._worker = _PipelineWorker(chunks, self._config)
-        self._worker.moveToThread(self._thread)
-
-        self._thread.started.connect(self._worker.run)
-        self._worker.chunk_ready.connect(self._on_chunk_ready)
-        self._worker.error.connect(self._on_error)
-        self._worker.all_done.connect(self._on_all_done)
-        self._worker.all_done.connect(self._thread.quit)
-        self._worker.error.connect(self._thread.quit)
-        self._thread.finished.connect(self._on_thread_finished)
-
+        generation = self._generation
+        chunks = make_chunks(split_sentences(text), self._config.sentences_per_chunk)
+        thread = QThread(self)
+        worker = _PipelineWorker(chunks, self._config)
+        worker.moveToThread(thread)
+        self._jobs[generation] = (thread, worker)
+        thread.started.connect(worker.run)
+        worker.chunk_ready.connect(
+            lambda path, index, total, job=generation: self._on_chunk_ready(job, path, index, total)
+        )
+        worker.error.connect(
+            lambda message, index, total, job=generation: self._on_error(job, message, index, total)
+        )
+        worker.completed.connect(thread.quit)
+        worker.completed.connect(worker.deleteLater)
+        thread.finished.connect(lambda job=generation: self._on_thread_finished(job))
+        thread.finished.connect(thread.deleteLater)
         self.started.emit()
-        self._thread.start()
+        thread.start()
 
     def stop(self) -> None:
         self._cancel_current()
         self.finished.emit()
 
-    # ── private ───────────────────────────────────────────────────────────────
-
-    def _on_thread_finished(self) -> None:
-        self._thread = None
-        self._worker = None
+    def shutdown(self) -> None:
+        """Cancel outstanding work and wait for network calls to leave their threads."""
+        self._cancel_current()
+        maximum_wait = (self._config.timeout_sec + 1) * 1_000
+        for thread, _worker in tuple(self._jobs.values()):
+            if thread.isRunning():
+                thread.quit()
+                thread.wait(maximum_wait)
 
     def _cancel_current(self) -> None:
-        if self._worker:
-            self._worker.cancel()
-        if self._thread is not None:
-            try:
-                if self._thread.isRunning():
-                    self._thread.quit()
-                    self._thread.wait(500)
-            except RuntimeError:
-                pass
-        self._thread = None
-        self._worker = None
+        self._generation += 1
+        for thread, worker in self._jobs.values():
+            worker.cancel()
+            thread.requestInterruption()
 
-    def _on_chunk_ready(self, path: str, idx: int, total: int) -> None:
-        self.chunk_ready.emit(path, idx, total)
+    def _on_thread_finished(self, generation: int) -> None:
+        job = self._jobs.pop(generation, None)
+        del job
 
-    def _on_all_done(self) -> None:
-        pass   # finished 由 AudioPlayer 播完最后一块后发出
+    def _on_chunk_ready(self, generation: int, path: str, index: int, total: int) -> None:
+        if generation == self._generation:
+            self.chunk_ready.emit(path, index, total)
 
-    def _on_error(self, msg: str, idx: int, _total: int) -> None:
-        self.finished.emit()
-        self.error.emit(f"第 {idx + 1} 块失败：{msg}")
+    def _on_error(self, generation: int, message: str, index: int, _total: int) -> None:
+        if generation == self._generation:
+            self.finished.emit()
+            self.error.emit(f"Chunk {index + 1} failed: {message}")

@@ -1,708 +1,686 @@
-"""设置对话框：左侧 Tab + 右侧表单，暗色风格"""
+"""Localized, responsive settings and diagnostics dialog."""
+
 from __future__ import annotations
 
-import threading
+import asyncio
+import contextlib
+import os
+import tempfile
+import time
+from pathlib import Path
 
 import httpx
-from PySide6.QtCore import Qt, QThread, QObject, Signal
+from PySide6.QtCore import QObject, Qt, QThread, QUrl, Signal
+from PySide6.QtGui import QDesktopServices, QGuiApplication
 from PySide6.QtWidgets import (
-    QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
-    QFormLayout, QFrame, QHBoxLayout, QLabel, QLineEdit,
-    QListWidget, QPushButton, QRadioButton, QSlider, QSpinBox,
-    QStackedWidget, QVBoxLayout, QWidget,
+    QCheckBox,
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QListWidget,
+    QPushButton,
+    QScrollArea,
+    QSpinBox,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
 )
 
+from .. import __version__
+from ..audio_player import AudioPlayer
+from ..clipboard_watcher import ClipboardWatcher
 from ..config import Config
+from ..diagnostics import collect_diagnostics, format_diagnostics
+from ..hotkey_service import HotkeyService
+from ..i18n import Translator
+from .theme import LIGHT, application_stylesheet
 
-_EDGE_VOICES = [
-    "zh-CN-XiaoxiaoNeural",    # 女声，温柔自然（推荐）
-    "zh-CN-YunxiNeural",       # 男声，活泼
-    "zh-CN-YunjianNeural",     # 男声，播报
-    "zh-CN-XiaoyiNeural",      # 女声，活泼
-    "zh-CN-YunyangNeural",     # 男声，新闻
-    "zh-TW-HsiaoChenNeural",   # 台湾女声
-    "zh-TW-YunJheNeural",      # 台湾男声
-    "zh-HK-HiuMaanNeural",     # 粤语女声
-    "en-US-JennyNeural",       # 英文女声
-    "en-US-GuyNeural",         # 英文男声
-]
-
-_COMMON_MODELS = [
-    "FunAudioLLM/CosyVoice2-0.5B",
-    "fnlp/MOSS-TTSD-v0.5",
-    "tts-1",
-    "tts-1-hd",
-]
-# SiliconFlow voice 格式：model:voice_name；OpenAI 格式：voice_name
-_COMMON_VOICES = [
-    "FunAudioLLM/CosyVoice2-0.5B:anna",
-    "FunAudioLLM/CosyVoice2-0.5B:alex",
-    "FunAudioLLM/CosyVoice2-0.5B:bella",
-    "FunAudioLLM/CosyVoice2-0.5B:benjamin",
-    "FunAudioLLM/CosyVoice2-0.5B:charles",
-    "FunAudioLLM/CosyVoice2-0.5B:claire",
-    "FunAudioLLM/CosyVoice2-0.5B:david",
-    "FunAudioLLM/CosyVoice2-0.5B:diana",
-    "fnlp/MOSS-TTSD-v0.5:anna",
-    "fnlp/MOSS-TTSD-v0.5:alex",
-    "alloy", "echo", "fable", "nova", "onyx", "shimmer",  # OpenAI 备用
-]
-_BASE_URL_PRESETS = [
-    "https://api.siliconflow.cn/v1",
-    "https://api.openai.com/v1",
-    "https://dashscope.aliyuncs.com/compatible-mode/v1",
-]
-_STYLE_DARK = """
-    QDialog, QWidget { background: #FFFFFF; color: #111827; font-size: 13px; }
-    QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {
-        background: #F9FAFB; border: 1px solid #D1D5DB;
-        border-radius: 6px; padding: 5px 8px; color: #111827;
-    }
-    QLineEdit:focus, QComboBox:focus { border-color: #3B82F6;
-        background: #FFFFFF; }
-    QComboBox::drop-down { border: none; }
-    QComboBox QAbstractItemView { background: #FFFFFF; color: #111827;
-        selection-background-color: #EFF6FF; selection-color: #1D4ED8; }
-    QPushButton {
-        background: #F3F4F6; border: 1px solid #D1D5DB;
-        border-radius: 6px; padding: 5px 14px; color: #374151;
-    }
-    QPushButton:hover { background: #E5E7EB; border-color: #9CA3AF; }
-    QPushButton#primary { background: #3B82F6; border: none; color: #fff; font-weight: 600; }
-    QPushButton#primary:hover { background: #2563EB; }
-    QLabel { color: #374151; }
-    QLabel#section { color: #9CA3AF; font-size: 11px; }
-    QRadioButton { color: #374151; }
-    QRadioButton::indicator { width: 15px; height: 15px; border-radius: 8px;
-        border: 1.5px solid #D1D5DB; background: #FFFFFF; }
-    QRadioButton::indicator:checked { border-color: #3B82F6;
-        background: qradialgradient(cx:0.5,cy:0.5,radius:0.4,
-            fx:0.5,fy:0.5, stop:0 #3B82F6, stop:0.45 #3B82F6,
-            stop:0.5 #FFFFFF, stop:1 #FFFFFF); }
-    QCheckBox { color: #374151; }
-    QCheckBox::indicator { width: 16px; height: 16px; border-radius: 4px;
-        border: 1.5px solid #D1D5DB; background: #FFFFFF; }
-    QCheckBox::indicator:checked { background: #3B82F6; border-color: #3B82F6; }
-    QSlider::groove:horizontal { height: 4px; background: #E5E7EB; border-radius: 2px; }
-    QSlider::handle:horizontal {
-        width: 14px; height: 14px; margin: -5px 0;
-        background: #3B82F6; border-radius: 7px; border: 2px solid #FFFFFF;
-    }
-    QSlider::sub-page:horizontal { background: #3B82F6; border-radius: 2px; }
-    QListWidget { background: #F9FAFB; border: none; border-right: 1px solid #E5E7EB;
-        font-size: 13px; }
-    QListWidget::item { padding: 10px 16px; color: #6B7280; }
-    QListWidget::item:selected { background: #EFF6FF; color: #2563EB;
-        border-left: 2px solid #3B82F6; }
-    QFrame#sep { background: #E5E7EB; }
-    QDialogButtonBox QPushButton { min-width: 72px; }
-"""
+EDGE_VOICES = (
+    ("English (US) · Aria", "en-US-AriaNeural"),
+    ("English (US) · Guy", "en-US-GuyNeural"),
+    ("English (UK) · Sonia", "en-GB-SoniaNeural"),
+    ("Français (France) · Denise", "fr-FR-DeniseNeural"),
+    ("Français (France) · Henri", "fr-FR-HenriNeural"),
+    ("Français (Belgique) · Charline", "fr-BE-CharlineNeural"),
+    ("Français (Canada) · Sylvie", "fr-CA-SylvieNeural"),
+)
 
 
-class _TestWorker(QObject):
-    result = Signal(bool, str)   # success, message
+class _TtsTestWorker(QObject):
+    result = Signal(bool, int, str)
 
-    def __init__(self, base_url: str, api_key: str, model: str, voice: str) -> None:
+    def __init__(
+        self,
+        backend: str,
+        edge_voice: str,
+        base_url: str,
+        api_key: str,
+        model: str,
+        voice: str,
+        timeout: int,
+        test_phrase: str,
+    ) -> None:
         super().__init__()
-        self.base_url = base_url
-        self.api_key = api_key
-        self.model = model
-        self.voice = voice
+        self._backend = backend
+        self._edge_voice = edge_voice
+        self._base_url = base_url
+        self._api_key = api_key
+        self._model = model
+        self._voice = voice
+        self._timeout = timeout
+        self._test_phrase = test_phrase
 
     def run(self) -> None:
-        import time
-        t0 = time.monotonic()
+        started = time.monotonic()
+        temporary_path = ""
         try:
-            with httpx.Client(timeout=15) as client:
-                resp = client.post(
-                    f"{self.base_url.rstrip('/')}/audio/speech",
-                    headers={"Authorization": f"Bearer {self.api_key}"},
-                    json={"model": self.model, "input": "测试", "voice": self.voice,
-                          "speed": 1.0, "response_format": "mp3"},
+            if self._backend == "edge":
+                import edge_tts
+
+                handle, temporary_path = tempfile.mkstemp(suffix=".mp3")
+                os.close(handle)
+                asyncio.run(
+                    edge_tts.Communicate(self._test_phrase, self._edge_voice).save(temporary_path)
                 )
-                resp.raise_for_status()
-            ms = int((time.monotonic() - t0) * 1000)
-            self.result.emit(True, f"连接成功 ({ms}ms)")
+                if Path(temporary_path).stat().st_size == 0:
+                    raise RuntimeError("The service returned empty audio")
+            else:
+                headers = {"Content-Type": "application/json"}
+                if self._api_key:
+                    headers["Authorization"] = f"Bearer {self._api_key}"
+                response = httpx.post(
+                    f"{self._base_url.rstrip('/')}/audio/speech",
+                    headers=headers,
+                    json={
+                        "model": self._model,
+                        "input": self._test_phrase,
+                        "voice": self._voice,
+                        "response_format": "mp3",
+                    },
+                    timeout=self._timeout,
+                )
+                response.raise_for_status()
+                if not response.content:
+                    raise RuntimeError("The service returned empty audio")
+            duration = int((time.monotonic() - started) * 1_000)
+            self.result.emit(True, duration, "")
         except Exception as exc:
-            self.result.emit(False, str(exc)[:80])
+            self.result.emit(False, 0, str(exc))
+        finally:
+            if temporary_path:
+                with contextlib.suppress(OSError):
+                    Path(temporary_path).unlink()
 
 
 class SettingsDialog(QDialog):
     saved = Signal()
 
-    def __init__(self, config: Config, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        config: Config,
+        translator: Translator,
+        *,
+        hotkeys: HotkeyService,
+        clipboard_watcher: ClipboardWatcher,
+        player: AudioPlayer,
+        log_path: Path,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self._config = config
+        self._translator = translator
+        self._hotkeys = hotkeys
+        self._clipboard_watcher = clipboard_watcher
+        self._player = player
+        self._log_path = log_path
+        self._labels: list[tuple[QLabel, str]] = []
+        self._texts: list[tuple[QWidget, str]] = []
+        self._navigation_keys = [
+            "tab.general",
+            "tab.speech",
+            "tab.hotkeys",
+            "tab.clipboard",
+            "tab.ocr",
+            "tab.appearance",
+            "tab.cache",
+            "tab.diagnostics",
+            "tab.about",
+        ]
         self._test_thread: QThread | None = None
-        self._test_worker: _TestWorker | None = None
-        self.setWindowTitle("⚙  设置")
-        self.setMinimumSize(520, 560)
-        self.setStyleSheet(_STYLE_DARK)
+        self._test_worker: _TtsTestWorker | None = None
+        self.setMinimumSize(780, 640)
+        self.resize(860, 700)
+        self.setStyleSheet(application_stylesheet())
         self._build_ui()
-        # 打开时从磁盘刷新，确保显示最新保存的值
-        self._config.reload()
         self._load_values()
-
-    # ── build ─────────────────────────────────────────────────────────────────
+        self._translator.language_changed.connect(self.retranslate)
+        self.retranslate()
 
     def _build_ui(self) -> None:
-        root = QHBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
-
-        # 左侧 Tab 列表
-        self._tab_list = QListWidget()
-        self._tab_list.setFixedWidth(120)
-        for name in ["API", "触发", "图片OCR", "外观", "缓存", "关于"]:
-            self._tab_list.addItem(name)
-        self._tab_list.setCurrentRow(0)
-        self._tab_list.currentRowChanged.connect(self._stack.setCurrentIndex
-                                                  if hasattr(self, "_stack") else lambda _: None)
-        root.addWidget(self._tab_list)
-
-        # 右侧堆叠页面
+        root = QVBoxLayout(self)
+        body = QHBoxLayout()
+        body.setSpacing(0)
+        self._navigation = QListWidget()
+        self._navigation.setMinimumWidth(175)
+        self._navigation.setMaximumWidth(220)
         self._stack = QStackedWidget()
-        self._stack.addWidget(self._page_api())
-        self._stack.addWidget(self._page_trigger())
-        self._stack.addWidget(self._page_ocr())
-        self._stack.addWidget(self._page_appearance())
-        self._stack.addWidget(self._page_cache())
-        self._stack.addWidget(self._page_about())
-        root.addWidget(self._stack)
-        self._tab_list.currentRowChanged.connect(self._stack.setCurrentIndex)
-
-        # 底部按钮
-        outer = QVBoxLayout()
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.addLayout(root)
-        sep = QFrame()
-        sep.setObjectName("sep")
-        sep.setFixedHeight(1)
-        outer.addWidget(sep)
-        btns = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Save
+        pages = (
+            self._general_page(),
+            self._speech_page(),
+            self._hotkeys_page(),
+            self._clipboard_page(),
+            self._ocr_page(),
+            self._appearance_page(),
+            self._cache_page(),
+            self._diagnostics_page(),
+            self._about_page(),
         )
-        btns.button(QDialogButtonBox.StandardButton.Save).setText("保存")
-        btns.button(QDialogButtonBox.StandardButton.Cancel).setText("取消")
-        btns.button(QDialogButtonBox.StandardButton.Save).setObjectName("primary")
-        btns.accepted.connect(self._on_save)
-        btns.rejected.connect(self.reject)
-        btn_wrap = QWidget()
-        btn_layout = QHBoxLayout(btn_wrap)
-        btn_layout.setContentsMargins(12, 8, 12, 12)
-        btn_layout.addStretch()
-        btn_layout.addWidget(btns)
-        outer.addWidget(btn_wrap)
-        self.setLayout(outer)
+        for page in pages:
+            self._stack.addWidget(self._scrollable(page))
+        self._navigation.currentRowChanged.connect(self._stack.setCurrentIndex)
+        self._navigation.setCurrentRow(0)
+        body.addWidget(self._navigation)
+        body.addWidget(self._stack, 1)
+        root.addLayout(body, 1)
 
-    # ── pages ─────────────────────────────────────────────────────────────────
+        self._buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel
+        )
+        self._save_button = self._buttons.button(QDialogButtonBox.StandardButton.Save)
+        self._save_button.setProperty("primary", True)
+        self._buttons.accepted.connect(self._save)
+        self._buttons.rejected.connect(self.reject)
+        root.addWidget(self._buttons)
 
-    def _page_api(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(10)
+    @staticmethod
+    def _scrollable(page: QWidget) -> QScrollArea:
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setWidget(page)
+        return scroll
 
-        # ── 后端选择 ──────────────────────────────────────────────────────────
-        backend_row = QHBoxLayout()
-        backend_row.addWidget(QLabel("语音后端"))
-        self._backend_edge = QRadioButton("Edge-TTS（微软免费）")
-        self._backend_openai = QRadioButton("OpenAI 兼容 API")
-        self._backend_edge.toggled.connect(self._on_backend_changed)
-        backend_row.addWidget(self._backend_edge)
-        backend_row.addWidget(self._backend_openai)
-        backend_row.addStretch()
-        layout.addLayout(backend_row)
+    @staticmethod
+    def _page() -> tuple[QWidget, QVBoxLayout]:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(28, 24, 28, 24)
+        layout.setSpacing(14)
+        return page, layout
 
-        sep = QFrame()
-        sep.setObjectName("sep")
-        sep.setFixedHeight(1)
-        layout.addWidget(sep)
+    def _add_row(self, form: QFormLayout, key: str, widget: QWidget) -> None:
+        label = QLabel()
+        label.setBuddy(widget)
+        self._labels.append((label, key))
+        form.addRow(label, widget)
 
-        # ── Edge-TTS 专属区域 ─────────────────────────────────────────────────
-        self._edge_group = QWidget()
-        edge_form = QFormLayout(self._edge_group)
-        edge_form.setSpacing(10)
-        edge_form.setContentsMargins(0, 0, 0, 0)
-        edge_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+    def _bind_text(self, widget: QWidget, key: str) -> QWidget:
+        self._texts.append((widget, key))
+        return widget
 
+    def _general_page(self) -> QWidget:
+        page, layout = self._page()
+        form = QFormLayout()
+        form.setHorizontalSpacing(18)
+        self._language = QComboBox()
+        self._language.addItem("English", "en")
+        self._language.addItem("Français", "fr")
+        self._language.currentIndexChanged.connect(self._language_selected)
+        self._add_row(form, "settings.language", self._language)
+        self._mode = QComboBox()
+        self._add_row(form, "mode.title", self._mode)
+        layout.addLayout(form)
+        layout.addStretch()
+        return page
+
+    def _speech_page(self) -> QWidget:
+        page, layout = self._page()
+        form = QFormLayout()
+        form.setHorizontalSpacing(18)
+        self._provider = QComboBox()
+        self._provider.currentIndexChanged.connect(self._update_provider_controls)
+        self._provider.activated.connect(self._provider_activated)
+        self._add_row(form, "settings.provider", self._provider)
         self._edge_voice = QComboBox()
-        self._edge_voice.setEditable(True)
-        self._edge_voice.addItems(_EDGE_VOICES)
-        edge_form.addRow("音色", self._edge_voice)
-
-        # 测试 Edge
-        edge_test_row = QHBoxLayout()
-        self._edge_test_btn = QPushButton("测试  ↻")
-        self._edge_test_btn.clicked.connect(self._on_test_edge)
-        self._edge_test_result = QLabel("")
-        edge_test_row.addWidget(self._edge_test_btn)
-        edge_test_row.addWidget(self._edge_test_result)
-        edge_test_row.addStretch()
-        edge_form.addRow("", edge_test_row)
-        layout.addWidget(self._edge_group)
-
-        # ── OpenAI 兼容区域 ───────────────────────────────────────────────────
-        self._openai_group = QWidget()
-        openai_form = QFormLayout(self._openai_group)
-        openai_form.setSpacing(10)
-        openai_form.setContentsMargins(0, 0, 0, 0)
-        openai_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-
-        self._base_url = QComboBox()
-        self._base_url.setEditable(True)
-        self._base_url.addItems(_BASE_URL_PRESETS)
-        openai_form.addRow("Base URL", self._base_url)
-
-        key_row = QHBoxLayout()
+        for label, identifier in EDGE_VOICES:
+            self._edge_voice.addItem(label, identifier)
+        self._add_row(form, "settings.edge_voice", self._edge_voice)
+        self._base_url = QLineEdit()
+        self._add_row(form, "settings.base_url", self._base_url)
+        self._model = QLineEdit()
+        self._add_row(form, "settings.model", self._model)
+        self._voice = QLineEdit()
+        self._add_row(form, "settings.voice", self._voice)
+        api_row = QWidget()
+        api_layout = QHBoxLayout(api_row)
+        api_layout.setContentsMargins(0, 0, 0, 0)
         self._api_key = QLineEdit()
         self._api_key.setEchoMode(QLineEdit.EchoMode.Password)
-        self._api_key.setPlaceholderText("sk-…")
-        eye_btn = QPushButton("👁")
-        eye_btn.setFixedSize(30, 30)
-        eye_btn.setStyleSheet("background:transparent;border:none;font-size:14px;")
-        eye_btn.clicked.connect(self._toggle_key_visibility)
-        key_row.addWidget(self._api_key)
-        key_row.addWidget(eye_btn)
-        openai_form.addRow("API Key", key_row)
-
-        mv_row = QHBoxLayout()
-        self._model = QComboBox()
-        self._model.setEditable(True)
-        self._model.addItems(_COMMON_MODELS)
-        self._voice = QComboBox()
-        self._voice.setEditable(True)
-        self._voice.addItems(_COMMON_VOICES)
-        self._model.currentTextChanged.connect(self._on_model_changed)
-        mv_row.addWidget(self._model)
-        mv_row.addWidget(self._voice)
-        openai_form.addRow("Model / Voice", mv_row)
-
-        fmt_row = QHBoxLayout()
-        self._fmt_mp3  = QRadioButton("mp3")
-        self._fmt_wav  = QRadioButton("wav")
-        self._fmt_opus = QRadioButton("opus")
-        self._fmt_mp3.setChecked(True)
-        fmt_row.addWidget(self._fmt_mp3)
-        fmt_row.addWidget(self._fmt_wav)
-        fmt_row.addWidget(self._fmt_opus)
-        fmt_row.addStretch()
-        openai_form.addRow("Format", fmt_row)
-
+        self._api_key.setPlaceholderText(self._translator.text("settings.api_key_optional"))
+        self._show_key = QPushButton()
+        self._show_key.clicked.connect(self._toggle_api_key)
+        api_layout.addWidget(self._api_key)
+        api_layout.addWidget(self._show_key)
+        self._add_row(form, "settings.api_key", api_row)
+        self._timeout = QSpinBox()
+        self._timeout.setRange(1, 300)
+        self._timeout.setSuffix(" s")
+        self._add_row(form, "settings.timeout", self._timeout)
+        self._speed = QDoubleSpinBox()
+        self._speed.setRange(0.5, 2.0)
+        self._speed.setSingleStep(0.1)
+        self._speed.setSuffix("×")
+        self._add_row(form, "settings.speed", self._speed)
+        self._sentences = QSpinBox()
+        self._sentences.setRange(1, 20)
+        self._add_row(form, "settings.sentences_per_chunk", self._sentences)
+        layout.addLayout(form)
         test_row = QHBoxLayout()
-        self._test_btn = QPushButton("测试连接  ↻")
-        self._test_btn.clicked.connect(self._on_test)
-        self._test_result = QLabel("")
-        test_row.addWidget(self._test_btn)
-        test_row.addWidget(self._test_result)
-        test_row.addStretch()
-        openai_form.addRow("", test_row)
-        layout.addWidget(self._openai_group)
-
-        # ── 公共 Speed 滑块 ───────────────────────────────────────────────────
-        sep2 = QFrame()
-        sep2.setObjectName("sep")
-        sep2.setFixedHeight(1)
-        layout.addWidget(sep2)
-
-        common_form = QFormLayout()
-        common_form.setSpacing(10)
-        common_form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-        speed_row = QHBoxLayout()
-        self._speed_slider = QSlider(Qt.Orientation.Horizontal)
-        self._speed_slider.setRange(50, 200)
-        self._speed_label = QLabel("1.2×")
-        self._speed_label.setFixedWidth(36)
-        self._speed_slider.valueChanged.connect(
-            lambda v: self._speed_label.setText(f"{v/100:.1f}×")
-        )
-        speed_row.addWidget(self._speed_slider)
-        speed_row.addWidget(self._speed_label)
-        common_form.addRow("Speed", speed_row)
-        layout.addLayout(common_form)
-
+        self._test_tts_button = QPushButton()
+        self._test_tts_button.clicked.connect(self._test_tts)
+        self._test_result = QLabel()
+        test_row.addWidget(self._test_tts_button)
+        test_row.addWidget(self._test_result, 1)
+        layout.addLayout(test_row)
         layout.addStretch()
-        return w
+        return page
 
-    def _page_trigger(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(12)
-
-        self._clip_chk = QCheckBox("启用剪贴板监听")
-        self._hotkey_chk = QCheckBox("启用全局快捷键")
-        layout.addWidget(self._clip_chk)
-        layout.addWidget(self._hotkey_chk)
-
-        hk_row = QHBoxLayout()
-        hk_row.addWidget(QLabel("快捷键组合"))
-        self._hotkey_edit = QLineEdit()
-        self._hotkey_edit.setPlaceholderText("例：ctrl+alt+r")
-        hk_row.addWidget(self._hotkey_edit)
-        layout.addLayout(hk_row)
-
-        layout.addWidget(QLabel("默认模式", objectName="section"))
-        self._mode_ask  = QRadioButton("询问（每次弹气泡）")
-        self._mode_auto = QRadioButton("自动（直接朗读）")
-        layout.addWidget(self._mode_ask)
-        layout.addWidget(self._mode_auto)
-
+    def _hotkeys_page(self) -> QWidget:
+        page, layout = self._page()
+        self._enable_hotkeys = QCheckBox()
+        self._bind_text(self._enable_hotkeys, "settings.enable_hotkeys")
+        layout.addWidget(self._enable_hotkeys)
         form = QFormLayout()
-        self._min_len = QSpinBox()
-        self._min_len.setRange(1, 100)
-        self._max_len = QSpinBox()
-        self._max_len.setRange(10, 10000)
-        self._debounce = QSpinBox()
-        self._debounce.setRange(50, 2000)
-        self._debounce.setSuffix(" ms")
-        self._sentences_per_chunk = QSpinBox()
-        self._sentences_per_chunk.setRange(1, 20)
-        self._sentences_per_chunk.setToolTip(
-            "每次发送给 API 的句子数。数值越小首句响应越快，数值越大合并停顿更自然。"
-        )
-        form.addRow("最小长度", self._min_len)
-        form.addRow("最大长度", self._max_len)
-        form.addRow("防抖延迟", self._debounce)
-        form.addRow("每块句数", self._sentences_per_chunk)
+        self._read_hotkey = QLineEdit()
+        self._stop_hotkey = QLineEdit()
+        self._pause_hotkey = QLineEdit()
+        self._replay_hotkey = QLineEdit()
+        self._add_row(form, "hotkey.read", self._read_hotkey)
+        self._add_row(form, "hotkey.stop", self._stop_hotkey)
+        self._add_row(form, "hotkey.pause", self._pause_hotkey)
+        self._add_row(form, "hotkey.replay", self._replay_hotkey)
         layout.addLayout(form)
         layout.addStretch()
-        return w
+        return page
 
-    def _page_ocr(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(12)
-
-        self._ocr_enabled_chk = QCheckBox("启用图片 OCR（复制图片时自动识别文字）")
-        layout.addWidget(self._ocr_enabled_chk)
-
-        desc = QLabel(
-            "复制图片到剪贴板后，将图片发送给 Vision API 提取文字，再朗读识别结果。\n"
-            "使用与 TTS 相同的 Base URL 和 API Key。"
-        )
-        desc.setWordWrap(True)
-        desc.setStyleSheet("color: #666; font-size: 12px;")
-        layout.addWidget(desc)
-
+    def _clipboard_page(self) -> QWidget:
+        page, layout = self._page()
+        self._clipboard_monitor = QCheckBox()
+        self._restore_clipboard = QCheckBox()
+        self._bind_text(self._clipboard_monitor, "settings.clipboard_monitor")
+        self._bind_text(self._restore_clipboard, "clipboard.restore")
+        layout.addWidget(self._clipboard_monitor)
+        layout.addWidget(self._restore_clipboard)
         form = QFormLayout()
-        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
-
-        self._ocr_model = QComboBox()
-        self._ocr_model.setEditable(True)
-        for m in [
-            "PaddlePaddle/PaddleOCR-VL-1.5",
-            "Qwen/Qwen2-VL-7B-Instruct",
-            "Qwen/Qwen2-VL-72B-Instruct",
-            "Pro/Qwen/Qwen2-VL-7B-Instruct",
-            "gpt-4o",
-            "gpt-4o-mini",
-        ]:
-            self._ocr_model.addItem(m)
-        form.addRow("OCR 模型", self._ocr_model)
-
-        self._ocr_quality = QSpinBox()
-        self._ocr_quality.setRange(30, 95)
-        self._ocr_quality.setSuffix("  (30=低质 / 95=高质)")
-        self._ocr_quality.setToolTip("图片压缩质量，越低体积越小、API 消耗越少，但细节可能丢失")
-        form.addRow("图片质量", self._ocr_quality)
-
+        self._capture_timeout = QSpinBox()
+        self._capture_timeout.setRange(250, 10_000)
+        self._capture_timeout.setSuffix(" ms")
+        self._max_length = QSpinBox()
+        self._max_length.setRange(10, 200_000)
+        self._add_row(form, "settings.capture_timeout", self._capture_timeout)
+        self._add_row(form, "settings.max_length", self._max_length)
         layout.addLayout(form)
         layout.addStretch()
-        return w
+        return page
 
-    def _page_appearance(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(12)
-
+    def _ocr_page(self) -> QWidget:
+        page, layout = self._page()
+        self._ocr_enabled = QCheckBox()
+        self._bind_text(self._ocr_enabled, "settings.enable_ocr")
+        layout.addWidget(self._ocr_enabled)
+        description = QLabel()
+        description.setWordWrap(True)
+        description.setProperty("muted", True)
+        self._bind_text(description, "ocr.description")
+        layout.addWidget(description)
         form = QFormLayout()
-        self._bubble_timeout = QSpinBox()
-        self._bubble_timeout.setRange(2, 30)
-        self._bubble_timeout.setSuffix(" 秒")
-        form.addRow("气泡显示时长", self._bubble_timeout)
+        self._ocr_model = QLineEdit()
+        self._add_row(form, "settings.ocr_model", self._ocr_model)
         layout.addLayout(form)
-
-        self._autostart_chk = QCheckBox("开机自动启动")
-        layout.addWidget(self._autostart_chk)
         layout.addStretch()
-        return w
+        return page
 
-    def _page_cache(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
-        layout.setContentsMargins(20, 16, 20, 16)
-        layout.setSpacing(12)
+    def _appearance_page(self) -> QWidget:
+        page, layout = self._page()
+        form = QFormLayout()
+        self._theme = QComboBox()
+        for theme in ("system", "light", "dark"):
+            self._theme.addItem("", theme)
+        self._add_row(form, "settings.theme", self._theme)
+        layout.addLayout(form)
+        layout.addStretch()
+        return page
 
-        self._cache_chk = QCheckBox("启用本地音频缓存")
-        layout.addWidget(self._cache_chk)
+    def _cache_page(self) -> QWidget:
+        page, layout = self._page()
+        self._cache_enabled = QCheckBox()
+        self._bind_text(self._cache_enabled, "settings.cache_enabled")
+        layout.addWidget(self._cache_enabled)
+        form = QFormLayout()
+        self._cache_limit = QSpinBox()
+        self._cache_limit.setRange(0, 10_000)
+        self._cache_limit.setSuffix(" MB")
+        self._add_row(form, "settings.cache_limit", self._cache_limit)
+        layout.addLayout(form)
+        self._cache_usage = QLabel()
+        layout.addWidget(self._cache_usage)
+        self._clear_cache = QPushButton()
+        self._clear_cache.clicked.connect(self._clear_cache_files)
+        layout.addWidget(self._clear_cache)
+        layout.addStretch()
+        return page
 
-        cap_row = QHBoxLayout()
-        cap_row.addWidget(QLabel("容量上限"))
-        self._cache_mb = QSlider(Qt.Orientation.Horizontal)
-        self._cache_mb.setRange(0, 500)
-        self._cache_mb_label = QLabel("100 MB")
-        self._cache_mb.valueChanged.connect(
-            lambda v: self._cache_mb_label.setText(f"{v} MB")
+    def _diagnostics_page(self) -> QWidget:
+        page, layout = self._page()
+        self._diagnostics_form = QFormLayout()
+        self._diagnostic_values: dict[str, QLabel] = {}
+        keys = (
+            "app_version",
+            "operating_system",
+            "python_version",
+            "language",
+            "read_hotkey",
+            "hotkey_registered",
+            "clipboard_watcher_active",
+            "tts_backend",
+            "tts_endpoint",
+            "tts_model",
+            "audio_state",
+            "cache_path",
+            "log_path",
         )
-        cap_row.addWidget(self._cache_mb)
-        cap_row.addWidget(self._cache_mb_label)
-        layout.addLayout(cap_row)
-
-        # 当前用量（动态读取）
-        self._cache_usage_label = QLabel()
-        layout.addWidget(self._cache_usage_label)
-
-        clear_btn = QPushButton("清空缓存")
-        clear_btn.clicked.connect(self._on_clear_cache)
-        layout.addWidget(clear_btn)
+        label_keys = (
+            "diagnostics.app_version",
+            "diagnostics.os",
+            "diagnostics.python",
+            "diagnostics.language",
+            "diagnostics.hotkey",
+            "diagnostics.hotkey_status",
+            "diagnostics.clipboard",
+            "diagnostics.tts_backend",
+            "diagnostics.endpoint",
+            "diagnostics.model",
+            "diagnostics.audio",
+            "diagnostics.cache_path",
+            "diagnostics.log_path",
+        )
+        for name, label_key in zip(keys, label_keys, strict=True):
+            value = QLabel()
+            value.setTextInteractionFlags(
+                value.textInteractionFlags() | Qt.TextInteractionFlag.TextSelectableByMouse
+            )
+            self._diagnostic_values[name] = value
+            self._add_row(self._diagnostics_form, label_key, value)
+        layout.addLayout(self._diagnostics_form)
+        actions = QHBoxLayout()
+        self._test_clipboard = QPushButton()
+        self._test_clipboard.clicked.connect(self._diagnose_clipboard)
+        self._copy_diagnostics = QPushButton()
+        self._copy_diagnostics.clicked.connect(self._copy_diagnostics_text)
+        self._open_logs = QPushButton()
+        self._open_logs.clicked.connect(
+            lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._log_path.parent)))
+        )
+        actions.addWidget(self._test_clipboard)
+        actions.addWidget(self._copy_diagnostics)
+        actions.addWidget(self._open_logs)
+        layout.addLayout(actions)
+        self._diagnostic_result = QLabel()
+        layout.addWidget(self._diagnostic_result)
         layout.addStretch()
-        return w
+        return page
 
-    def _page_about(self) -> QWidget:
-        w = QWidget()
-        layout = QVBoxLayout(w)
-        layout.setContentsMargins(20, 24, 20, 16)
-        layout.setSpacing(8)
-        layout.addWidget(QLabel("Speak Helper"))
-        layout.addWidget(QLabel("版本 0.0.1"))
-        layout.addWidget(QLabel("选中文字，一键朗读"))
+    def _about_page(self) -> QWidget:
+        page, layout = self._page()
+        title = QLabel("<h2>Speak Helper</h2>")
+        layout.addWidget(title)
+        self._about_version = QLabel()
+        self._about_description = QLabel()
+        self._about_description.setWordWrap(True)
+        self._about_derived = QLabel()
+        self._about_derived.setWordWrap(True)
+        layout.addWidget(self._about_version)
+        layout.addWidget(self._about_description)
+        layout.addWidget(self._about_derived)
         layout.addStretch()
-        return w
-
-    # ── load / save ───────────────────────────────────────────────────────────
+        return page
 
     def _load_values(self) -> None:
-        cfg = self._config
-
-        # 后端选择
-        is_edge = cfg.backend == "edge"
-        self._backend_edge.setChecked(is_edge)
-        self._backend_openai.setChecked(not is_edge)
-        self._edge_group.setVisible(is_edge)
-        self._openai_group.setVisible(not is_edge)
-
-        # Edge 设置
-        ev_idx = self._edge_voice.findText(cfg.edge_voice)
-        self._edge_voice.setCurrentIndex(ev_idx if ev_idx >= 0 else 0)
-        if ev_idx < 0:
-            self._edge_voice.setEditText(cfg.edge_voice)
-
-        # OpenAI 设置
-        idx = self._base_url.findText(cfg.base_url)
-        if idx >= 0:
-            self._base_url.setCurrentIndex(idx)
-        else:
-            self._base_url.setEditText(cfg.base_url)
-
-        self._api_key.setText(cfg.api_key)
-
-        m_idx = self._model.findText(cfg.model)
-        self._model.setCurrentIndex(m_idx if m_idx >= 0 else 0)
-        self._model.setEditText(cfg.model)
-
-        v_idx = self._voice.findText(cfg.voice)
-        self._voice.setCurrentIndex(v_idx if v_idx >= 0 else 0)
-
-        self._speed_slider.setValue(int(cfg.speed * 100))
-
-        fmt = cfg.audio_format
-        self._fmt_mp3.setChecked(fmt == "mp3")
-        self._fmt_wav.setChecked(fmt == "wav")
-        self._fmt_opus.setChecked(fmt == "opus")
-
-        self._clip_chk.setChecked(cfg.clipboard_enabled)
-        self._hotkey_chk.setChecked(cfg.hotkey_enabled)
-        self._hotkey_edit.setText(cfg.hotkey)
-        self._mode_ask.setChecked(cfg.mode == "ask")
-        self._mode_auto.setChecked(cfg.mode == "auto")
-        self._min_len.setValue(cfg.min_length)
-        self._max_len.setValue(cfg.max_length)
-        self._debounce.setValue(cfg.debounce_ms)
-        self._sentences_per_chunk.setValue(cfg.sentences_per_chunk)
-
-        self._bubble_timeout.setValue(cfg.bubble_timeout_ms // 1000)
-        self._autostart_chk.setChecked(bool(cfg.get("ui", "autostart", default=False)))
-
-        self._ocr_enabled_chk.setChecked(cfg.ocr_enabled)
-        ocr_idx = self._ocr_model.findText(cfg.ocr_model)
-        self._ocr_model.setCurrentIndex(ocr_idx if ocr_idx >= 0 else 0)
-        self._ocr_model.setEditText(cfg.ocr_model)
-        self._ocr_quality.setValue(cfg.ocr_image_quality)
-
-        self._cache_chk.setChecked(cfg.cache_enabled)
-        self._cache_mb.setValue(cfg.cache_max_mb)
+        config = self._config
+        self._language.setCurrentIndex(max(0, self._language.findData(config.language)))
+        self._reload_mode_items(config.mode)
+        provider = str(config.get("tts", "provider_preset", default="custom"))
+        provider_data = "edge" if config.backend == "edge" else provider
+        self._reload_provider_items(provider_data)
+        edge_index = self._edge_voice.findData(config.edge_voice)
+        self._edge_voice.setCurrentIndex(edge_index if edge_index >= 0 else 0)
+        self._base_url.setText(config.base_url)
+        self._model.setText(config.model)
+        self._voice.setText(config.voice)
+        self._api_key.setText(config.api_key)
+        self._timeout.setValue(config.timeout_sec)
+        self._speed.setValue(config.speed)
+        self._sentences.setValue(config.sentences_per_chunk)
+        self._enable_hotkeys.setChecked(config.hotkey_enabled)
+        self._read_hotkey.setText(config.hotkey)
+        self._stop_hotkey.setText(config.stop_hotkey)
+        self._pause_hotkey.setText(config.pause_hotkey)
+        self._replay_hotkey.setText(config.replay_hotkey)
+        self._clipboard_monitor.setChecked(config.clipboard_enabled)
+        self._restore_clipboard.setChecked(config.restore_clipboard)
+        self._capture_timeout.setValue(config.capture_timeout_ms)
+        self._max_length.setValue(config.max_length)
+        self._ocr_enabled.setChecked(config.ocr_enabled)
+        self._ocr_model.setText(config.ocr_model)
+        theme = str(config.get("ui", "theme", default="system"))
+        self._theme.setCurrentIndex(max(0, self._theme.findData(theme)))
+        self._cache_enabled.setChecked(config.cache_enabled)
+        self._cache_limit.setValue(config.cache_max_mb)
         self._refresh_cache_usage()
+        self._refresh_diagnostics()
 
-    def _on_save(self) -> None:
-        cfg = self._config
+    def retranslate(self) -> None:
+        tr = self._translator.text
+        self.setWindowTitle(tr("settings.title"))
+        current_row = self._navigation.currentRow()
+        self._navigation.clear()
+        self._navigation.addItems([tr(key) for key in self._navigation_keys])
+        self._navigation.setCurrentRow(max(0, current_row))
+        for label, key in self._labels:
+            label.setText(tr(key))
+        for widget, key in self._texts:
+            widget.setProperty("text", tr(key))
+        self._save_button.setText(tr("action.save"))
+        self._buttons.button(QDialogButtonBox.StandardButton.Cancel).setText(tr("action.cancel"))
+        self._show_key.setText(tr("settings.show_key"))
+        self._test_tts_button.setText(tr("action.test_tts"))
+        self._clear_cache.setText(tr("settings.clear_cache"))
+        self._test_clipboard.setText(tr("action.test_clipboard"))
+        self._copy_diagnostics.setText(tr("action.copy_diagnostics"))
+        self._open_logs.setText(tr("action.open_log_folder"))
+        self._about_version.setText(tr("about.version", version=__version__))
+        self._about_description.setText(tr("about.description"))
+        self._about_derived.setText(tr("about.derived"))
+        self._reload_mode_items(self._mode.currentData() or self._config.mode)
+        self._reload_provider_items(self._provider.currentData() or "edge")
+        selected_theme = self._theme.currentData() or "system"
+        for index, theme in enumerate(("system", "light", "dark")):
+            self._theme.setItemText(index, tr(f"theme.{theme}"))
+        self._theme.setCurrentIndex(max(0, self._theme.findData(selected_theme)))
+        self._refresh_cache_usage()
+        self._refresh_diagnostics()
 
-        backend = "edge" if self._backend_edge.isChecked() else "openai"
-        cfg.set("tts", "backend", backend)
-        cfg.set("tts", "edge_voice", self._edge_voice.currentText().strip())
-        cfg.set("tts", "base_url", self._base_url.currentText().strip())
-        cfg.api_key = self._api_key.text().strip()
-        cfg.set("tts", "model", self._model.currentText().strip())
-        cfg.set("tts", "voice", self._voice.currentText())
-        cfg.set("tts", "speed", round(self._speed_slider.value() / 100, 2))
+    def _reload_mode_items(self, selected: str) -> None:
+        self._mode.blockSignals(True)
+        self._mode.clear()
+        for mode in ("manual", "ask", "auto"):
+            self._mode.addItem(self._translator.text(f"mode.{mode}"), mode)
+        self._mode.setCurrentIndex(max(0, self._mode.findData(selected)))
+        self._mode.blockSignals(False)
 
-        if self._fmt_wav.isChecked():
-            cfg.set("tts", "format", "wav")
-        elif self._fmt_opus.isChecked():
-            cfg.set("tts", "format", "opus")
-        else:
-            cfg.set("tts", "format", "mp3")
+    def _reload_provider_items(self, selected: str) -> None:
+        self._provider.blockSignals(True)
+        self._provider.clear()
+        for key, value in (
+            ("backend.edge", "edge"),
+            ("backend.openai", "custom"),
+            ("backend.qwen_local", "qwen3_local"),
+        ):
+            self._provider.addItem(self._translator.text(key), value)
+        self._provider.setCurrentIndex(max(0, self._provider.findData(selected)))
+        self._provider.blockSignals(False)
+        self._update_provider_controls()
 
-        cfg.set("trigger", "clipboard_enabled", self._clip_chk.isChecked())
-        cfg.set("trigger", "hotkey_enabled", self._hotkey_chk.isChecked())
-        cfg.set("trigger", "hotkey", self._hotkey_edit.text().strip())
-        cfg.set("trigger", "mode", "ask" if self._mode_ask.isChecked() else "auto")
-        cfg.set("trigger", "min_length", self._min_len.value())
-        cfg.set("trigger", "max_length", self._max_len.value())
-        cfg.set("trigger", "debounce_ms", self._debounce.value())
-        cfg.set("tts", "sentences_per_chunk", self._sentences_per_chunk.value())
+    def _language_selected(self) -> None:
+        language = self._language.currentData()
+        if language:
+            self._translator.set_language(str(language))
 
-        cfg.set("ui", "bubble_timeout_ms", self._bubble_timeout.value() * 1000)
-        cfg.set("ui", "autostart", self._autostart_chk.isChecked())
+    def _update_provider_controls(self) -> None:
+        provider = self._provider.currentData()
+        is_edge = provider == "edge"
+        self._edge_voice.setEnabled(is_edge)
+        for widget in (self._base_url, self._model, self._voice, self._api_key):
+            widget.setEnabled(not is_edge)
 
-        cfg.set("ocr", "enabled", self._ocr_enabled_chk.isChecked())
-        cfg.set("ocr", "model", self._ocr_model.currentText().strip())
-        cfg.set("ocr", "image_quality", self._ocr_quality.value())
+    def _provider_activated(self) -> None:
+        self._update_provider_controls()
+        if self._provider.currentData() == "qwen3_local":
+            self._base_url.setText("http://127.0.0.1:8000/v1")
+            self._model.setText("Qwen/Qwen3-TTS")
 
-        cfg.set("cache", "enabled", self._cache_chk.isChecked())
-        cfg.set("cache", "max_mb", self._cache_mb.value())
+    def _toggle_api_key(self) -> None:
+        hidden = self._api_key.echoMode() == QLineEdit.EchoMode.Password
+        self._api_key.setEchoMode(
+            QLineEdit.EchoMode.Normal if hidden else QLineEdit.EchoMode.Password
+        )
 
-        cfg.save()
+    def _save(self) -> None:
+        config = self._config
+        provider = str(self._provider.currentData())
+        config.set("tts", "backend", "edge" if provider == "edge" else "openai")
+        config.set("tts", "provider_preset", provider)
+        config.set("tts", "edge_voice", self._edge_voice.currentData())
+        config.set("tts", "base_url", self._base_url.text().strip())
+        config.set("tts", "model", self._model.text().strip())
+        config.set("tts", "voice", self._voice.text().strip())
+        config.api_key = self._api_key.text()
+        config.set("tts", "timeout_sec", self._timeout.value())
+        config.set("tts", "speed", self._speed.value())
+        config.set("tts", "sentences_per_chunk", self._sentences.value())
+        config.set("trigger", "mode", self._mode.currentData())
+        config.set("trigger", "hotkey_enabled", self._enable_hotkeys.isChecked())
+        config.set("trigger", "hotkey", self._read_hotkey.text().strip())
+        config.set("trigger", "stop_hotkey", self._stop_hotkey.text().strip())
+        config.set("trigger", "pause_hotkey", self._pause_hotkey.text().strip())
+        config.set("trigger", "replay_hotkey", self._replay_hotkey.text().strip())
+        config.set("trigger", "clipboard_enabled", self._clipboard_monitor.isChecked())
+        config.set("trigger", "max_length", self._max_length.value())
+        config.set("clipboard", "restore_after_capture", self._restore_clipboard.isChecked())
+        config.set("clipboard", "capture_timeout_ms", self._capture_timeout.value())
+        config.set("ocr", "enabled", self._ocr_enabled.isChecked())
+        config.set("ocr", "model", self._ocr_model.text().strip())
+        config.set("ui", "theme", self._theme.currentData())
+        config.set("cache", "enabled", self._cache_enabled.isChecked())
+        config.set("cache", "max_mb", self._cache_limit.value())
+        config.save()
         self.saved.emit()
         self.accept()
 
-    # ── helpers ───────────────────────────────────────────────────────────────
+    def _test_tts(self) -> None:
+        if self._test_thread and self._test_thread.isRunning():
+            return
+        self._test_tts_button.setEnabled(False)
+        self._test_result.setText(self._translator.text("test.running"))
+        backend = "edge" if self._provider.currentData() == "edge" else "openai"
+        self._test_thread = QThread(self)
+        self._test_worker = _TtsTestWorker(
+            backend,
+            str(self._edge_voice.currentData()),
+            self._base_url.text().strip(),
+            self._api_key.text().strip(),
+            self._model.text().strip(),
+            self._voice.text().strip(),
+            self._timeout.value(),
+            self._translator.text("test.tts_phrase"),
+        )
+        self._test_worker.moveToThread(self._test_thread)
+        self._test_thread.started.connect(self._test_worker.run)
+        self._test_worker.result.connect(self._test_finished)
+        self._test_worker.result.connect(self._test_thread.quit)
+        self._test_thread.finished.connect(self._test_worker.deleteLater)
+        self._test_thread.finished.connect(self._test_thread.deleteLater)
+        self._test_thread.finished.connect(self._clear_test_worker)
+        self._test_thread.start()
 
-    def _on_backend_changed(self) -> None:
-        is_edge = self._backend_edge.isChecked()
-        self._edge_group.setVisible(is_edge)
-        self._openai_group.setVisible(not is_edge)
+    def _clear_test_worker(self) -> None:
+        self._test_worker = None
+        self._test_thread = None
 
-    def _on_test_edge(self) -> None:
-        import asyncio, tempfile, os
-        self._edge_test_btn.setEnabled(False)
-        self._edge_test_btn.setText("测试中…")
-        self._edge_test_result.setText("")
-
-        voice = self._edge_voice.currentText()
-        speed = self._speed_slider.value() / 100
-        rate_pct = int(round((speed - 1.0) * 100))
-        rate_str = f"+{rate_pct}%" if rate_pct >= 0 else f"{rate_pct}%"
-
-        import threading, time
-
-        def run():
-            import edge_tts
-            t0 = time.monotonic()
-            try:
-                tmp = tempfile.mktemp(suffix=".mp3")
-                asyncio.run(
-                    edge_tts.Communicate("测试语音", voice, rate=rate_str).save(tmp)
-                )
-                ms = int((time.monotonic() - t0) * 1000)
-                try:
-                    os.unlink(tmp)
-                except OSError:
-                    pass
-                self._edge_test_result.setStyleSheet("color:#10B981;")
-                self._edge_test_result.setText(f"✅ 成功 ({ms}ms)")
-            except Exception as e:
-                self._edge_test_result.setStyleSheet("color:#EF4444;")
-                self._edge_test_result.setText(f"❌ {str(e)[:60]}")
-            finally:
-                self._edge_test_btn.setEnabled(True)
-                self._edge_test_btn.setText("测试  ↻")
-
-        threading.Thread(target=run, daemon=True).start()
-
-    def _on_model_changed(self, model: str) -> None:
-        """model 切换时，将 voice 下拉更新为该 model 对应的预设音色"""
-        _model_voices: dict[str, list[str]] = {
-            "FunAudioLLM/CosyVoice2-0.5B": [
-                "FunAudioLLM/CosyVoice2-0.5B:anna",
-                "FunAudioLLM/CosyVoice2-0.5B:alex",
-                "FunAudioLLM/CosyVoice2-0.5B:bella",
-                "FunAudioLLM/CosyVoice2-0.5B:benjamin",
-                "FunAudioLLM/CosyVoice2-0.5B:charles",
-                "FunAudioLLM/CosyVoice2-0.5B:claire",
-                "FunAudioLLM/CosyVoice2-0.5B:david",
-                "FunAudioLLM/CosyVoice2-0.5B:diana",
-            ],
-            "fnlp/MOSS-TTSD-v0.5": [
-                "fnlp/MOSS-TTSD-v0.5:anna",
-                "fnlp/MOSS-TTSD-v0.5:alex",
-                "fnlp/MOSS-TTSD-v0.5:bella",
-                "fnlp/MOSS-TTSD-v0.5:benjamin",
-                "fnlp/MOSS-TTSD-v0.5:charles",
-                "fnlp/MOSS-TTSD-v0.5:claire",
-                "fnlp/MOSS-TTSD-v0.5:david",
-                "fnlp/MOSS-TTSD-v0.5:diana",
-            ],
-        }
-        voices = _model_voices.get(model, ["alloy", "echo", "fable", "nova", "onyx", "shimmer"])
-        current = self._voice.currentText()
-        self._voice.blockSignals(True)
-        self._voice.clear()
-        self._voice.addItems(voices)
-        # 尝试保留当前选中项，否则回到第一个
-        idx = self._voice.findText(current)
-        self._voice.setCurrentIndex(idx if idx >= 0 else 0)
-        self._voice.blockSignals(False)
-
-    def _toggle_key_visibility(self) -> None:
-        if self._api_key.echoMode() == QLineEdit.EchoMode.Password:
-            self._api_key.setEchoMode(QLineEdit.EchoMode.Normal)
-        else:
-            self._api_key.setEchoMode(QLineEdit.EchoMode.Password)
+    def _test_finished(self, success: bool, duration_ms: int, reason: str) -> None:
+        self._test_tts_button.setEnabled(True)
+        key = "test.success" if success else "test.failed"
+        self._test_result.setText(
+            self._translator.text(key, duration_ms=duration_ms, reason=reason)
+        )
+        self._test_result.setStyleSheet(
+            f"color:{LIGHT.success if success else LIGHT.error};font-weight:600;"
+        )
 
     def _refresh_cache_usage(self) -> None:
-        cache_dir = self._config.cache_dir
-        total = sum(p.stat().st_size for p in cache_dir.glob("*") if p.is_file())
-        used_mb = total / 1024 / 1024
-        self._cache_usage_label.setText(
-            f"当前已用：{used_mb:.1f} MB / {self._config.cache_max_mb} MB"
+        total = sum(
+            path.stat().st_size for path in self._config.cache_dir.glob("*") if path.is_file()
+        )
+        self._cache_usage.setText(
+            self._translator.text(
+                "settings.cache_usage", used=total / 1024 / 1024, limit=self._cache_limit.value()
+            )
         )
 
-    def _on_clear_cache(self) -> None:
-        for p in self._config.cache_dir.glob("*"):
-            try:
-                p.unlink()
-            except OSError:
-                pass
+    def _clear_cache_files(self) -> None:
+        for path in self._config.cache_dir.glob("*"):
+            if path.is_file():
+                with contextlib.suppress(OSError):
+                    path.unlink()
         self._refresh_cache_usage()
 
-    def _on_test(self) -> None:
-        self._test_btn.setEnabled(False)
-        self._test_btn.setText("测试中…")
-        self._test_result.setText("")
-
-        worker = _TestWorker(
-            self._base_url.currentText().strip(),
-            self._api_key.text().strip(),
-            self._model.currentText().strip(),
-            self._voice.currentText(),
+    def _snapshot(self):
+        return collect_diagnostics(
+            self._config,
+            self._hotkeys,
+            self._clipboard_watcher,
+            self._player,
+            self._log_path,
         )
-        thread = QThread(self)
-        worker.moveToThread(thread)
-        thread.started.connect(worker.run)
-        worker.result.connect(self._on_test_result)
-        worker.result.connect(thread.quit)
-        thread.finished.connect(thread.deleteLater)
-        self._test_thread = thread
-        self._test_worker = worker
-        thread.start()
 
-    def _on_test_result(self, success: bool, msg: str) -> None:
-        self._test_btn.setEnabled(True)
-        self._test_btn.setText("测试连接  ↻")
-        color = "#10B981" if success else "#EF4444"
-        icon = "✅" if success else "❌"
-        self._test_result.setStyleSheet(f"color:{color};")
-        self._test_result.setText(f"{icon} {msg}")
+    def _refresh_diagnostics(self) -> None:
+        snapshot = self._snapshot()
+        for name, label in self._diagnostic_values.items():
+            value = getattr(snapshot, name)
+            if isinstance(value, bool):
+                false_key = (
+                    "status.unregistered" if name == "hotkey_registered" else "status.disabled"
+                )
+                value = self._translator.text("status.registered" if value else false_key)
+            elif name == "audio_state":
+                value = self._translator.text(f"status.{value}")
+            label.setText(str(value))
+
+    def _copy_diagnostics_text(self) -> None:
+        QGuiApplication.clipboard().setText(format_diagnostics(self._snapshot()))
+
+    def _diagnose_clipboard(self) -> None:
+        mime = QGuiApplication.clipboard().mimeData()
+        key = "test.success" if mime is not None and mime.hasText() else "clipboard.empty"
+        self._diagnostic_result.setText(
+            self._translator.text(key, duration_ms=0)
+            if key == "test.success"
+            else self._translator.text(key)
+        )

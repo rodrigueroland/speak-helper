@@ -1,152 +1,160 @@
-"""应用主控制器：装配所有模块并连接信号"""
+"""Application composition root and lifecycle."""
+
 from __future__ import annotations
 
+import ctypes
+import logging
 import sys
 
-from PySide6.QtCore import Qt, QPoint
-from PySide6.QtWidgets import QApplication, QMessageBox
+from PySide6.QtCore import QPoint, Qt
+from PySide6.QtGui import QImage
+from PySide6.QtWidgets import QApplication, QMessageBox, QSystemTrayIcon
 
-# ── 单例互斥锁（Windows Named Mutex） ─────────────────────────────────────────
-_MUTEX_NAME = "Global\\SpeakHelper_SingleInstance_Mutex"
-_mutex_handle = None   # 持有引用，防止 GC 释放导致锁丢失
-
-
-def _acquire_single_instance() -> bool:
-    """
-    尝试创建全局命名 Mutex。
-    返回 True 表示本进程是第一个实例；False 表示已有实例在运行。
-    非 Windows 平台直接返回 True（放行）。
-    """
-    global _mutex_handle
-    if sys.platform != "win32":
-        return True
-    try:
-        import ctypes
-        kernel32 = ctypes.windll.kernel32
-        handle = kernel32.CreateMutexW(None, True, _MUTEX_NAME)
-        if handle and kernel32.GetLastError() == 183:   # ERROR_ALREADY_EXISTS
-            kernel32.CloseHandle(handle)
-            return False
-        _mutex_handle = handle
-        return True
-    except Exception:
-        return True   # 获取失败时放行，避免阻塞启动
-
-
+from . import __version__
 from .audio_player import AudioPlayer
 from .clipboard_watcher import ClipboardWatcher
 from .config import Config
-from .hotkey_service import HotkeyService
+from .hotkey_service import ACTION_READ, HotkeyService
+from .i18n import Translator
+from .logging_config import configure_logging
 from .ocr_service import OcrService
+from .selection_capture import SelectionCaptureService
 from .speech_service import SpeechService
 from .text_filter import TextFilter
+from .text_normalizer import NormalizationOptions, normalize_for_speech
 from .ui.floating_dock import FloatingDock
 from .ui.prompt_bubble import PromptBubble
 from .ui.settings_dialog import SettingsDialog
 from .ui.tray_icon import TrayIcon
 
+logger = logging.getLogger(__name__)
+_MUTEX_NAME = "Global\\SpeakHelper_SingleInstance_Mutex"
+_mutex_handle: int | None = None
+
+
+def _acquire_single_instance() -> bool:
+    """Acquire the Windows process mutex; other platforms currently pass through."""
+    global _mutex_handle
+    if sys.platform != "win32":
+        return True
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.CreateMutexW(None, True, _MUTEX_NAME)
+    if not handle:
+        logger.error("single_instance_mutex_failed code=%d", ctypes.get_last_error())
+        return True
+    if kernel32.GetLastError() == 183:
+        kernel32.CloseHandle(handle)
+        return False
+    _mutex_handle = int(handle)
+    return True
+
 
 class SpeakHelperApp:
-    def __init__(self, app: QApplication) -> None:
-        self._app = app
-        self._last_text: str = ""
-        self._paused = False
-        self._pending_image = None   # 等待 OCR 的剪贴板图片
+    """Coordinate use cases while keeping UI and infrastructure focused."""
 
-        # ── 初始化各模块 ──────────────────────────────────────────────────────
+    def __init__(self, application: QApplication) -> None:
+        self._application = application
+        self._last_text = ""
+        self._pending_image: QImage | None = None
         self._config = Config()
+        self._log_path = configure_logging(self._config.log_dir)
+        self._translator = Translator(self._config)
         self._speech = SpeechService(self._config)
         self._player = AudioPlayer()
         self._text_filter = TextFilter(self._config)
-        self._clip_watcher = ClipboardWatcher(self._config)
-        self._hotkey = HotkeyService(self._config)
+        self._clipboard_watcher = ClipboardWatcher(self._config)
+        self._selection_capture = SelectionCaptureService(self._config)
+        self._hotkeys = HotkeyService(self._config)
         self._ocr = OcrService(self._config)
-
-        # ── UI ────────────────────────────────────────────────────────────────
-        self._dock = FloatingDock(self._config)
-        self._bubble = PromptBubble(self._config)
-        self._tray = TrayIcon(self._config)
-
-        self._settings_dlg: SettingsDialog | None = None
-
+        self._dock = FloatingDock(self._config, self._translator)
+        self._bubble = PromptBubble(self._config, self._translator)
+        self._tray = TrayIcon(self._config, self._translator)
+        self._settings_dialog: SettingsDialog | None = None
+        self._shutting_down = False
         self._connect_signals()
-        self._hotkey.start()
-
-    # ── signal wiring ─────────────────────────────────────────────────────────
+        self._apply_clipboard_mode()
+        self._hotkeys.start()
 
     def _connect_signals(self) -> None:
-        # 剪贴板文本 → 过滤 → 气泡或直接朗读
-        self._clip_watcher.text_changed.connect(self._text_filter.feed)
-        self._text_filter.text_accepted.connect(self._on_text_from_clipboard)
+        self._clipboard_watcher.text_changed.connect(self._text_filter.feed)
+        self._text_filter.text_accepted.connect(self._on_clipboard_text)
+        self._clipboard_watcher.image_changed.connect(self._on_clipboard_image)
+        self._selection_capture.capture_started.connect(
+            lambda: self._clipboard_watcher.set_suppressed(True)
+        )
+        self._selection_capture.capture_finished.connect(
+            lambda: self._clipboard_watcher.set_suppressed(False)
+        )
+        self._selection_capture.text_ready.connect(self._speak)
+        self._selection_capture.error.connect(self._on_capture_error)
 
-        # 剪贴板图片 → 先弹询问气泡 → 确认后 OCR → 语音
-        self._clip_watcher.image_changed.connect(self._on_image_from_clipboard)
+        self._hotkeys.read_requested.connect(self._selection_capture.capture)
+        self._hotkeys.stop_requested.connect(self._stop)
+        self._hotkeys.pause_requested.connect(self._toggle_playback_pause)
+        self._hotkeys.replay_requested.connect(self._replay_last)
+        self._hotkeys.registration_changed.connect(self._on_hotkey_registration)
+        self._hotkeys.error.connect(self._on_hotkey_error)
+
+        self._bubble.confirmed.connect(self._speak)
         self._bubble.image_confirmed.connect(self._start_ocr)
         self._ocr.text_ready.connect(self._speak)
-        self._ocr.started.connect(lambda: self._dock.set_state("speaking"))
-        self._ocr.started.connect(lambda: self._tray.show_message("OCR", "正在识别图片文字…"))
-        self._ocr.error.connect(lambda msg: self._tray.show_message("OCR 失败", msg))
-        self._ocr.error.connect(lambda _msg: self._dock.set_state("error"))
+        self._ocr.started.connect(lambda: self._set_state("speaking"))
+        self._ocr.error.connect(self._on_ocr_error)
 
-        # 快捷键 → 直接朗读（不走模式判断）
-        self._hotkey.text_ready.connect(self._speak)
-        self._hotkey.error.connect(lambda msg: self._tray.show_message("快捷键", msg))
-
-        # 气泡确认 → 朗读
-        self._bubble.confirmed.connect(self._speak)
-
-        # TTS 分块就绪 → 入播放队列（边下边播）
-        self._speech.chunk_ready.connect(
-            lambda path, idx, total: self._player.enqueue(path, idx, total)
-        )
-
-        # 状态同步到 Dock 和 Tray
         self._speech.started.connect(self._player.reset)
-        self._speech.started.connect(lambda: self._dock.set_state("speaking"))
-        self._speech.started.connect(lambda: self._tray.set_state("speaking"))
-        self._speech.finished.connect(lambda: self._dock.set_state("idle"))
-        self._speech.finished.connect(lambda: self._tray.set_state("idle"))
+        self._speech.started.connect(lambda: self._set_state("speaking"))
+        self._speech.chunk_ready.connect(self._player.enqueue)
         self._speech.error.connect(self._on_speech_error)
-        self._player.playback_finished.connect(lambda: self._dock.set_state("idle"))
-        self._player.playback_finished.connect(lambda: self._tray.set_state("idle"))
-        self._player.playback_finished.connect(self._speech.finished.emit)
-        self._player.error.connect(self._on_speech_error)
+        self._player.playback_started.connect(lambda: logger.info("playback_started"))
+        self._player.playback_paused.connect(lambda: self._set_state("paused"))
+        self._player.playback_resumed.connect(lambda: self._set_state("speaking"))
+        self._player.playback_finished.connect(self._on_playback_finished)
+        self._player.playback_stopped.connect(lambda: logger.info("playback_stopped"))
+        self._player.error.connect(self._on_player_error)
 
-        # Dock 点击：暂停/继续；右键：显示托盘菜单
-        self._dock.clicked.connect(self._on_dock_click)
+        self._dock.clicked.connect(self._toggle_playback_pause)
         self._dock.double_clicked.connect(self._replay_last)
         self._dock.right_clicked.connect(self._show_dock_menu)
-
-        # Tray 菜单
-        self._tray.pause_toggled.connect(self._on_pause_toggle)
+        self._tray.read_requested.connect(self._selection_capture.capture)
+        self._tray.pause_requested.connect(self._toggle_playback_pause)
         self._tray.stop_requested.connect(self._stop)
         self._tray.replay_requested.connect(self._replay_last)
-        self._tray.mode_changed.connect(self._on_mode_changed)
-        self._tray.clipboard_toggled.connect(self._clip_watcher.set_enabled)
-        self._tray.clipboard_toggled.connect(
-            lambda en: self._config.set("trigger", "clipboard_enabled", en)
-        )
-        self._tray.hotkey_toggled.connect(self._hotkey.set_enabled)
-        self._tray.hotkey_toggled.connect(
-            lambda en: self._config.set("trigger", "hotkey_enabled", en)
-        )
+        self._tray.mode_changed.connect(self._set_mode)
+        self._tray.clipboard_toggled.connect(self._set_clipboard_monitoring)
+        self._tray.hotkey_toggled.connect(self._set_hotkeys_enabled)
         self._tray.settings_requested.connect(self._show_settings)
         self._tray.about_requested.connect(self._show_about)
-        self._tray.quit_requested.connect(self._quit)
+        self._tray.quit_requested.connect(self.quit)
 
-    # ── slots ─────────────────────────────────────────────────────────────────
+    def _normalization_options(self) -> NormalizationOptions:
+        return NormalizationOptions(
+            strip_markdown_markers=bool(
+                self._config.get("preprocessing", "strip_markdown_markers", default=True)
+            ),
+            preserve_code=bool(self._config.get("preprocessing", "preserve_code", default=True)),
+            url_mode=str(self._config.get("preprocessing", "url_mode", default="keep")),
+        )
 
-    def _on_text_from_clipboard(self, text: str) -> None:
-        if self._paused:
+    def _speak(self, text: str) -> None:
+        normalized = normalize_for_speech(text, self._normalization_options())
+        if not normalized:
             return
+        self._last_text = normalized
+        self._text_filter.reset_dedup()
+        self._player.stop()
+        logger.info(
+            "tts_request_started length=%d backend=%s", len(normalized), self._config.backend
+        )
+        self._speech.speak(normalized)
+
+    def _on_clipboard_text(self, text: str) -> None:
         if self._config.mode == "ask":
             self._bubble.show_for_text(text, self._dock)
-        else:
+        elif self._config.mode == "auto":
             self._speak(text)
 
-    def _on_image_from_clipboard(self, image) -> None:
-        """剪贴板出现图片：存储后按模式决定直接 OCR 还是先询问。"""
-        if self._paused:
+    def _on_clipboard_image(self, image: QImage) -> None:
+        if not self._config.ocr_enabled or self._config.mode == "manual":
             return
         self._pending_image = image
         if self._config.mode == "ask":
@@ -155,111 +163,176 @@ class SpeakHelperApp:
             self._start_ocr()
 
     def _start_ocr(self) -> None:
-        """气泡确认或自动模式下，对 pending image 执行 OCR。"""
-        if self._pending_image is None:
-            return
-        self._ocr.recognize_clipboard_image(self._pending_image)
-        self._pending_image = None
+        if self._pending_image is not None:
+            self._ocr.recognize_clipboard_image(self._pending_image)
+            self._pending_image = None
 
-    def _speak(self, text: str) -> None:
-        if not text.strip():
-            return
-        if self._config.backend == "openai" and not self._config.api_key:
-            self._tray.show_message("Speak Helper", "请先在设置中填写 API Key")
-            self._show_settings()
-            return
-        self._last_text = text
-        self._text_filter.reset_dedup()   # 允许重读相同文本
-        self._speech.speak(text)
+    def _toggle_playback_pause(self) -> None:
+        self._player.toggle_pause()
 
     def _stop(self) -> None:
         self._speech.stop()
         self._player.stop()
+        self._set_state("idle")
 
     def _replay_last(self) -> None:
         if self._last_text:
             self._speak(self._last_text)
 
-    def _on_dock_click(self) -> None:
-        self._on_pause_toggle(not self._paused)
+    def _on_playback_finished(self) -> None:
+        logger.info("playback_finished")
+        self._set_state("idle")
 
-    def _show_dock_menu(self, pos: QPoint) -> None:
-        self._tray._menu.exec(pos)
-
-    def _on_pause_toggle(self, paused: bool) -> None:
-        self._paused = paused
-        state = "paused" if paused else "idle"
+    def _set_state(self, state: str, detail: str = "") -> None:
         self._dock.set_state(state)
-        self._tray.set_state(state)
-        self._clip_watcher.set_enabled(not paused and self._config.clipboard_enabled)
-        self._hotkey.set_enabled(not paused and self._config.hotkey_enabled)
+        self._tray.set_state(state, detail)
 
-    def _on_mode_changed(self, mode: str) -> None:
-        self._config.set("trigger", "mode", mode)
-        self._config.save()
-
-    def _on_speech_error(self, msg: str) -> None:
-        self._dock.set_state("error")
-        self._tray.set_state("error", msg)
-        self._tray.show_message("朗读失败", msg)
-
-    def _show_settings(self) -> None:
-        if self._settings_dlg is None:
-            self._settings_dlg = SettingsDialog(self._config)
-            self._settings_dlg.saved.connect(self._on_settings_saved)
-            self._settings_dlg.finished.connect(lambda _: setattr(self, "_settings_dlg", None))
-        self._settings_dlg.show()
-        self._settings_dlg.raise_()
-        self._settings_dlg.activateWindow()
-
-    def _on_settings_saved(self) -> None:
-        # 从磁盘刷新内存配置，确保新值立即生效
-        self._config.reload()
-        # 重启快捷键（组合键可能已改变）
-        self._hotkey.stop()
-        self._hotkey.start()
-        self._tray.show_message("设置已保存", "配置已生效")
-
-    def _show_about(self) -> None:
-        QMessageBox.about(
-            None,
-            "关于 Speak Helper",
-            "<b>Speak Helper v0.0.1</b><br>"
-            "选中文字，一键朗读。<br><br>"
-            "使用 OpenAI 兼容 TTS API 进行语音合成。<br>"
-            "支持 Windows / macOS / Linux。",
+    def _on_capture_error(self, code: str) -> None:
+        key = f"clipboard.{code}"
+        message = self._translator.text(key)
+        logger.warning("selection_capture_failed code=%s", code)
+        self._tray.show_message(
+            self._translator.text("error.title"),
+            message,
+            QSystemTrayIcon.MessageIcon.Warning,
         )
 
-    def _quit(self) -> None:
-        self._hotkey.stop()
+    def _on_hotkey_registration(self, action: str, registered: bool, reason: str) -> None:
+        if action == ACTION_READ and not registered:
+            result = self._hotkeys.results.get(action)
+            if reason == "hotkey conflict" and result is not None:
+                message = self._translator.text("error.hotkey_conflict", hotkey=result.hotkey)
+            else:
+                message = self._translator.text("error.hotkey_unavailable", reason=reason)
+            self._set_state("error", message)
+            self._tray.show_message(
+                self._translator.text("error.title"),
+                message,
+                QSystemTrayIcon.MessageIcon.Critical,
+            )
+
+    def _on_hotkey_error(self, reason: str) -> None:
+        self._set_state("error", reason)
+        self._tray.show_message(
+            self._translator.text("error.title"),
+            self._translator.text("error.hotkey_unavailable", reason=reason),
+            QSystemTrayIcon.MessageIcon.Critical,
+        )
+
+    def _on_speech_error(self, reason: str) -> None:
+        logger.error("tts_request_failed reason=%s", reason)
+        message = self._translator.text("error.speech", reason=reason)
+        self._set_state("error", reason)
+        self._tray.show_message(
+            self._translator.text("error.title"), message, QSystemTrayIcon.MessageIcon.Critical
+        )
+
+    def _on_player_error(self, code: str) -> None:
+        message = self._translator.text(f"error.{code}")
+        self._set_state("error", message)
+        self._tray.show_message(self._translator.text("error.title"), message)
+
+    def _on_ocr_error(self, reason: str) -> None:
+        logger.error("ocr_failed reason=%s", reason)
+        self._set_state("error", reason)
+        self._tray.show_message(self._translator.text("error.title"), reason)
+
+    def _set_mode(self, mode: str) -> None:
+        self._config.set("trigger", "mode", mode)
+        self._config.save()
+        self._apply_clipboard_mode()
+
+    def _set_clipboard_monitoring(self, enabled: bool) -> None:
+        self._config.set("trigger", "clipboard_enabled", enabled)
+        self._config.save()
+        self._apply_clipboard_mode()
+
+    def _apply_clipboard_mode(self) -> None:
+        enabled = self._config.clipboard_enabled and self._config.mode != "manual"
+        self._clipboard_watcher.set_enabled(enabled)
+
+    def _set_hotkeys_enabled(self, enabled: bool) -> None:
+        self._config.set("trigger", "hotkey_enabled", enabled)
+        self._config.save()
+        self._hotkeys.set_enabled(enabled)
+
+    def _show_dock_menu(self, position: QPoint) -> None:
+        self._tray.show_menu(position)
+
+    def _show_settings(self) -> None:
+        if self._settings_dialog is None:
+            self._settings_dialog = SettingsDialog(
+                self._config,
+                self._translator,
+                hotkeys=self._hotkeys,
+                clipboard_watcher=self._clipboard_watcher,
+                player=self._player,
+                log_path=self._log_path,
+            )
+            self._settings_dialog.saved.connect(self._on_settings_saved)
+            self._settings_dialog.finished.connect(self._clear_settings_reference)
+        self._settings_dialog.show()
+        self._settings_dialog.raise_()
+        self._settings_dialog.activateWindow()
+
+    def _clear_settings_reference(self, _result: int) -> None:
+        self._settings_dialog = None
+
+    def _on_settings_saved(self) -> None:
+        self._config.reload()
+        self._translator.set_language(self._config.language, persist=False)
+        self._apply_clipboard_mode()
+        self._hotkeys.start()
+        self._tray.retranslate()
+        self._tray.show_message(
+            self._translator.text("app.name"),
+            self._translator.text("notification.settings_saved"),
+        )
+
+    def _show_about(self) -> None:
+        tr = self._translator.text
+        QMessageBox.about(
+            None,
+            tr("action.about"),
+            f"<b>{tr('app.name')}</b><br>{tr('about.version', version=__version__)}"
+            f"<p>{tr('about.description')}</p><p>{tr('about.derived')}</p>",
+        )
+
+    def quit(self) -> None:
+        self.shutdown()
+        self._application.quit()
+
+    def shutdown(self) -> None:
+        if self._shutting_down:
+            return
+        self._shutting_down = True
+        logger.info("shutdown_started")
+        self._selection_capture.cancel()
+        self._hotkeys.stop()
+        self._speech.shutdown()
+        self._ocr.stop()
         self._player.stop()
         self._config.save()
-        self._app.quit()
 
-
-# ── 入口 ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    # ── 单例检查（必须在 QApplication 之前，弹窗需要先建 app） ─────────────────
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
-    app = QApplication(sys.argv)
-    app.setQuitOnLastWindowClosed(False)
-    app.setApplicationName("Speak Helper")
-    app.setApplicationVersion("0.0.1")
-
+    application = QApplication(sys.argv)
+    application.setQuitOnLastWindowClosed(False)
+    application.setApplicationName("Speak Helper")
+    application.setApplicationVersion(__version__)
+    config = Config()
+    translator = Translator(config)
     if not _acquire_single_instance():
         QMessageBox.warning(
-            None,
-            "Speak Helper",
-            "Speak Helper 已经在运行中。\n\n请检查系统托盘图标。",
+            None, translator.text("app.name"), translator.text("app.already_running")
         )
-        sys.exit(0)
-
-    controller = SpeakHelperApp(app)       # noqa: F841 — 必须持有引用
-
-    sys.exit(app.exec())
+        raise SystemExit(0)
+    controller = SpeakHelperApp(application)
+    application.aboutToQuit.connect(controller.shutdown)
+    raise SystemExit(application.exec())
 
 
 if __name__ == "__main__":

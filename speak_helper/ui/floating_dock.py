@@ -1,39 +1,43 @@
-"""屏幕右侧（或左侧）常驻浮动图标
-- 无边框、始终置顶、透明背景
-- 4 种状态：idle / speaking / paused / error
-- 朗读时外圈脉冲动画
-- 可拖拽；松手时吸附到最近屏幕边缘
-"""
+"""Draggable edge dock showing ready, speaking, paused, and error states."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import (
-    Property, QEasingCurve, QPoint, QPointF, QPropertyAnimation,
-    QRectF, QSize, Qt, Signal,
+    Property,
+    QEasingCurve,
+    QPoint,
+    QPointF,
+    QPropertyAnimation,
+    QRectF,
+    QSize,
+    Qt,
+    Signal,
 )
-from PySide6.QtGui import QColor, QCursor, QFont, QPainter, QPen, QPixmap
+from PySide6.QtGui import QColor, QCursor, QPainter, QPen
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QApplication, QWidget
 
 from ..assets import ICON_ERROR, ICON_IDLE, ICON_PAUSED, ICON_SPEAKING
 from ..config import Config
+from ..i18n import Translator
 
 _STATE_COLORS = {
-    "idle":     "#3B82F6",
+    "idle": "#3B82F6",
     "speaking": "#10B981",
-    "paused":   "#888888",
-    "error":    "#EF4444",
+    "paused": "#888888",
+    "error": "#EF4444",
 }
 
 _STATE_ICONS = {
-    "idle":     ICON_IDLE,
+    "idle": ICON_IDLE,
     "speaking": ICON_SPEAKING,
-    "paused":   ICON_PAUSED,
-    "error":    ICON_ERROR,
+    "paused": ICON_PAUSED,
+    "error": ICON_ERROR,
 }
 
-_DOCK_SIZE = 56          # widget 总大小（含阴影边距）
-_CIRCLE_R  = 22          # 圆形半径
-_EDGE_GAP  = 8           # 离屏幕边缘距离
+_DOCK_SIZE = 56  # Total widget size including shadow margin.
+_CIRCLE_R = 22
+_EDGE_GAP = 8
 
 
 class FloatingDock(QWidget):
@@ -41,9 +45,15 @@ class FloatingDock(QWidget):
     double_clicked = Signal()
     right_clicked = Signal(QPoint)
 
-    def __init__(self, config: Config, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        config: Config,
+        translator: Translator,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self._config = config
+        self._translator = translator
         self._state = "idle"
         self._pulse = 0.0
         self._drag_offset: QPoint | None = None
@@ -53,6 +63,8 @@ class FloatingDock(QWidget):
         self._setup_window()
         self._setup_animation()
         self._restore_position()
+        self._translator.language_changed.connect(self._update_accessible_text)
+        self._update_accessible_text()
         self.show()
 
     # ── public API ────────────────────────────────────────────────────────────
@@ -66,6 +78,12 @@ class FloatingDock(QWidget):
             self._anim.stop()
             self._pulse = 0.0
         self.update()
+        self._update_accessible_text()
+
+    def _update_accessible_text(self) -> None:
+        text = self._translator.text(f"status.{self._state}")
+        self.setAccessibleName(text)
+        self.setToolTip(text)
 
     # ── Qt property for animation ─────────────────────────────────────────────
 
@@ -118,7 +136,7 @@ class FloatingDock(QWidget):
         self.move(x, y)
 
     def _snap_to_edge(self) -> None:
-        """拖拽松手时自动吸附到最近的屏幕左右边缘"""
+        """Snap the dock to the closest horizontal screen edge."""
         screen = QApplication.primaryScreen().availableGeometry()
         cx = self.x() + _DOCK_SIZE // 2
         mid = screen.center().x()
@@ -128,7 +146,7 @@ class FloatingDock(QWidget):
         else:
             x = screen.right() - _DOCK_SIZE - _EDGE_GAP
             self._config.set("ui", "dock_edge", "right")
-        # 垂直方向保持，但限制在可用区域内
+        # Preserve vertical position while keeping the dock on screen.
         y = max(screen.top(), min(self.y(), screen.bottom() - _DOCK_SIZE))
         self.move(x, y)
 
@@ -143,17 +161,17 @@ class FloatingDock(QWidget):
         r = _CIRCLE_R
         border_color = QColor(_STATE_COLORS.get(self._state, "#3B82F6"))
 
-        # 阴影
+        # Shadow.
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor(0, 0, 0, 45))
         painter.drawEllipse(QPointF(cx + 1.5, cy + 2.5), float(r), float(r))
 
-        # 背景圆
+        # Circular background.
         painter.setBrush(QColor(24, 24, 32, 225))
         painter.setPen(QPen(border_color, 2.0))
         painter.drawEllipse(QPointF(cx, cy), float(r), float(r))
 
-        # 朗读时脉冲外圈
+        # Pulsing ring while speaking.
         if self._state == "speaking" and self._pulse > 0:
             alpha = int(220 * (1.0 - self._pulse))
             pulse_color = QColor(16, 185, 129, alpha)
@@ -162,7 +180,7 @@ class FloatingDock(QWidget):
             painter.setPen(QPen(pulse_color, 1.5))
             painter.drawEllipse(QPointF(cx, cy), pulse_r, pulse_r)
 
-        # SVG 图标
+        # State icon.
         renderer = self._get_renderer(self._state)
         icon_size = 22
         renderer.render(

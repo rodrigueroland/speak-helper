@@ -1,1 +1,1 @@
-# UI 子包
+"""Speak Helper user-interface components."""

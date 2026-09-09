@@ -28,23 +28,177 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Validation: Ruff formatting and lint pass; mypy passes; pytest passes on Python 3.12.
 - Remaining issues: CI and the packaged Windows build are tracked by Missions 19 and 21.
 
-## Mission 2 — Internationalization — TODO
-## Mission 3 — Configuration migration — TODO
-## Mission 4 — Windows global hotkeys — TODO
-## Mission 5 — Selected-text capture — TODO
-## Mission 6 — TTS text normalization — TODO
-## Mission 7 — Diagnostics — TODO
-## Mission 8 — Edge-TTS — TODO
-## Mission 9 — OpenAI-compatible TTS — TODO
-## Mission 10 — Qwen3-TTS — TODO
-## Mission 11 — Audio player UX — TODO
-## Mission 12 — Clipboard modes — TODO
-## Mission 13 — OCR isolation — TODO
-## Mission 14 — Settings UI — TODO
-## Mission 15 — System tray — TODO
-## Mission 16 — Startup and single instance — TODO
-## Mission 17 — Automated testing — TODO
-## Mission 18 — Windows manual validation — TODO
+## Mission 2 — Internationalization — IN PROGRESS
+
+- Objective: provide complete runtime-switchable English and French UI catalogs.
+- Decisions: use one observable translation service and centralized catalogs;
+  retain English technical logs.
+- Files modified: `speak_helper/i18n.py` and all modules under `speak_helper/ui/`.
+- Tests added: catalog parity, fallback, persistence, and Settings runtime switch.
+- Validation: native Windows renders inspected in English and French.
+- Remaining issues: normalize network/OCR error details into localized messages and
+  finish the production string audit.
+
+## Mission 3 — Configuration migration — DONE
+
+- Objective: version configuration and preserve existing installations.
+- Decisions: schema version 2; deep merge old files; detect French only on first
+  launch; validate bounded and enumerated values.
+- Files modified: `speak_helper/config.py`.
+- Tests added: old-file migration, locale defaults, invalid values, persistence.
+- Validation: migration tests pass; an existing local configuration loaded and saved.
+- Remaining issues: none for schema version 2.
+
+## Mission 4 — Windows global hotkeys — IN PROGRESS
+
+- Objective: make all four global actions reliable and diagnosable on Windows.
+- Decisions: native `RegisterHotKey` plus `MOD_NOREPEAT` on Windows; `pynput`
+  fallback elsewhere; Qt queued dispatch and explicit cleanup.
+- Files modified: `speak_helper/hotkey_service.py`, `speak_helper/main.py`.
+- Tests added: parsing, duplicates, conflict results, dispatch, cleanup.
+- Validation: native probe chord registered/unregistered; default chord conflict
+  correctly returned Windows error 1409.
+- Remaining issues: repeat manual validation with the user's final chosen chord.
+
+## Mission 5 — Selected-text capture — IN PROGRESS
+
+- Objective: transact Copy/capture/restore reliably without fixed clipboard sleeps.
+- Decisions: use the Windows clipboard sequence number, preserve all Qt MIME
+  formats, use a polling deadline, and suppress self-generated watcher events.
+- Files modified: `speak_helper/selection_capture.py`, `clipboard_watcher.py`, `main.py`.
+- Tests added: same-text capture, timeout, copy failure, restoration.
+- Validation: Windows probe passed 10/10 consecutive Unicode selection cycles.
+- Remaining issues: run the PyCharm/browser/Word/PDF packaged-app matrix.
+
+## Mission 6 — TTS text normalization — DONE
+
+- Objective: make technical prose pleasant without changing meaning.
+- Decisions: conservative Markdown cleanup, configurable URL handling, preserve
+  fenced code by default.
+- Files modified: `speak_helper/text_normalizer.py`, `speak_helper/main.py`.
+- Tests added: French accents, Unicode, Markdown, URLs, multiline code.
+- Validation: all normalization tests pass.
+- Remaining issues: expose advanced preprocessing options in Settings if demanded.
+
+## Mission 7 — Diagnostics — IN PROGRESS
+
+- Objective: explain hotkey, clipboard, backend, audio, cache, and log state.
+- Decisions: safe snapshots plus JSON-lines rotating logs; never include credentials
+  or full clipboard/OCR text.
+- Files modified: `diagnostics.py`, `logging_config.py`, Settings and composition.
+- Tests added: covered indirectly by Settings smoke tests.
+- Validation: structured events captured native conflict and clean shutdown.
+- Remaining issues: add dedicated diagnostics tests and an interactive hotkey test action.
+
+## Mission 8 — Edge-TTS — DONE
+
+- Objective: retain a zero-key baseline supporting good English and French voices.
+- Decisions: curated voice selector and live Test TTS action.
+- Files modified: `speech_service.py`, `ui/settings_dialog.py`.
+- Tests added: backend worker/cache/error tests.
+- Validation: live English and French synthesis passed; real Qt playback completed.
+- Remaining issues: optional dynamic voice discovery is deferred.
+
+## Mission 9 — OpenAI-compatible TTS — IN PROGRESS
+
+- Objective: support local and remote compatible `/audio/speech` endpoints.
+- Decisions: API key is optional; endpoint participates in cache identity; validate
+  content type and empty responses.
+- Files modified: `speech_service.py`, Settings and configuration.
+- Tests added: no-key request, timeout, cache, malformed content type.
+- Validation: mocked HTTP suite passes.
+- Remaining issues: live validation against a local compatible server.
+
+## Mission 10 — Qwen3-TTS — IN PROGRESS
+
+- Objective: connect to Qwen through an editable OpenAI-compatible local preset.
+- Decisions: no PyTorch/CUDA desktop dependency; preset reuses the generic client.
+- Files modified: `config.py`, `ui/settings_dialog.py`.
+- Tests added: generic local no-key transport coverage.
+- Validation: preset renders; no Qwen server was available for a live test.
+- Remaining issues: documentation and live compatible-server validation.
+
+## Mission 11 — Audio player UX — DONE
+
+- Objective: implement immediate replacement, pause, resume, stop, and replay.
+- Decisions: new reads discard obsolete audio; state follows Qt multimedia signals;
+  clear media sources so Windows releases file handles.
+- Files modified: `audio_player.py`, `main.py`, tray and dock UI.
+- Tests added: pause/resume/stop state and queue replacement.
+- Validation: unit tests and real Edge MP3 playback pass.
+- Remaining issues: packaged-device validation remains in Mission 18.
+
+## Mission 12 — Clipboard modes — DONE
+
+- Objective: provide manual, ask, and automatic behavior without duplicate speech.
+- Decisions: manual is the default; monitoring is disabled in manual mode; selection
+  transactions suppress watcher events.
+- Files modified: configuration, watcher, tray, Settings, composition.
+- Tests added: selection/watcher boundaries covered by capture tests.
+- Validation: mode controls render in both locales.
+- Remaining issues: packaged manual UX validation.
+
+## Mission 13 — OCR isolation — DONE
+
+- Objective: retain OCR without burdening the primary selection workflow.
+- Decisions: disabled by default, optional local-key transport, isolated worker,
+  length-only logs, and shutdown cleanup.
+- Files modified: `ocr_service.py`, configuration and Settings.
+- Tests added: none yet.
+- Validation: imports and application smoke launch pass with OCR disabled.
+- Remaining issues: add mocked OCR response tests before expanding OCR features.
+
+## Mission 14 — Settings UI — IN PROGRESS
+
+- Objective: responsive, accessible, localized sections with separated service logic.
+- Decisions: navigation plus stacked scrollable pages, semantic theme tokens, no
+  fixed content positioning, keyboard focus borders.
+- Files modified: `ui/settings_dialog.py`, `ui/theme.py`.
+- Tests added: runtime language switch smoke test.
+- Validation: English and French native Windows renders inspected at 860 x 700.
+- Remaining issues: inspect every page at minimum size and high DPI.
+
+## Mission 15 — System tray — DONE
+
+- Objective: expose primary controls and visible clipboard mode in the tray.
+- Decisions: localized command menu with Read, Pause/Resume, Stop, Replay, modes,
+  Settings, About, and Quit.
+- Files modified: `ui/tray_icon.py`.
+- Tests added: exercised through application and Settings smoke runs.
+- Validation: tray application smoke exits cleanly.
+- Remaining issues: packaged notification behavior remains to validate.
+
+## Mission 16 — Startup and single instance — IN PROGRESS
+
+- Objective: ensure one instance and deterministic cleanup.
+- Decisions: retain Windows mutex and explicitly stop capture, hotkeys, OCR, speech,
+  and media during idempotent shutdown.
+- Files modified: `main.py` and service lifecycle methods.
+- Tests added: hotkey cleanup and application smoke coverage.
+- Validation: development application launched and exited cleanly.
+- Remaining issues: login startup, mutex-handle cleanup, and packaged validation.
+
+## Mission 17 — Automated testing — IN PROGRESS
+
+- Objective: cover critical pure logic and service boundaries without live dependencies.
+- Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
+  providers for explicit probes.
+- Files modified: `tests/`.
+- Tests added: 42 total tests across configuration, localization, hotkeys, clipboard,
+  TTS, audio, preprocessing, Settings, and legacy filtering.
+- Validation: full suite passes.
+- Remaining issues: OCR, diagnostics, HTTP status, and more UI coverage.
+
+## Mission 18 — Windows manual validation — IN PROGRESS
+
+- Objective: repeatedly validate real application workflows on Windows 11.
+- Decisions: maintain a factual matrix and a reusable native selection probe.
+- Files modified: `docs/development/windows_test_matrix.md`,
+  `scripts/windows_selection_probe.py`.
+- Tests added: 10-cycle native hotkey/clipboard integration probe.
+- Validation: 10/10 synthetic editor captures; Edge synthesis/playback live checks.
+- Remaining issues: PyCharm/Codex and other named applications were not available
+  through the UI automation surface; packaged matrix remains NOT RUN.
 ## Mission 19 — Packaging — TODO
 ## Mission 20 — Documentation — TODO
 ## Mission 21 — GitHub CI — TODO

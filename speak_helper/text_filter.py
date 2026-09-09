@@ -1,4 +1,5 @@
-"""文本过滤器：防抖 + 去重 + 长度限制"""
+"""Debounce, deduplicate, and bound clipboard text."""
+
 from __future__ import annotations
 
 import hashlib
@@ -9,7 +10,7 @@ from .config import Config
 
 
 class TextFilter(QObject):
-    """对输入文本做去重、防抖、长度过滤，通过后发出 text_accepted 信号"""
+    """Emit accepted text after deduplication, debouncing, and length checks."""
 
     text_accepted = Signal(str)
 
@@ -38,11 +39,11 @@ class TextFilter(QObject):
         self._last_hash = h
         self._pending = trimmed
 
-        # 重置防抖计时器
+        # Restart the debounce window for the newest clipboard event.
         self._timer.start(self._config.debounce_ms)
 
     def reset_dedup(self) -> None:
-        """清除去重状态，使相同文本下次可被再次接受"""
+        """Allow the same text to be accepted by the next event."""
         self._last_hash = ""
 
     def _emit(self) -> None:

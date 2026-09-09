@@ -124,6 +124,7 @@ EN: dict[str, str] = {
     "test.failed": "Failed: {reason}",
     "test.running": "Testing…",
     "test.success": "Success ({duration_ms} ms)",
+    "test.tts_phrase": "Speak Helper text to speech test.",
     "tray.tooltip": "Speak Helper · {status}",
 }
 
@@ -247,6 +248,7 @@ FR: dict[str, str] = {
     "test.failed": "Échec : {reason}",
     "test.running": "Test en cours…",
     "test.success": "Réussi ({duration_ms} ms)",
+    "test.tts_phrase": "Test de synthèse vocale de Speak Helper.",
     "tray.tooltip": "Speak Helper · {status}",
 }
 
