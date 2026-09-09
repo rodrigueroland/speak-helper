@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 .pytest-*-temp/
 .pytest-tmp/
+.test-tmp/
 
 # Build / test
 build/

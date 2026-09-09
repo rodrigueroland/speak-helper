@@ -173,16 +173,19 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Validation: tray application smoke exits cleanly.
 - Remaining issues: packaged notification behavior remains to validate.
 
-## Mission 16 — Startup and single instance — IN PROGRESS
+## Mission 16 — Startup and single instance — DONE
 
 - Objective: ensure one instance and deterministic cleanup.
-- Decisions: retain Windows mutex and explicitly stop capture, hotkeys, OCR, speech,
-  and media during idempotent shutdown.
-- Files modified: `main.py` and service lifecycle methods.
-- Tests added: hotkey cleanup and application smoke coverage.
+- Decisions: retain Windows mutex, use the per-user Windows Run key for optional
+  launch at sign-in, and explicitly stop capture, hotkeys, OCR, speech, and media
+  during idempotent shutdown. Registry writes occur only when Settings is saved.
+- Files modified: `main.py`, `startup_service.py`, Settings, configuration, and
+  localization catalogs.
+- Tests added: command quoting, unsupported-platform behavior, mocked Windows
+  registry round trip, Settings state, hotkey cleanup, and application smoke coverage.
 - Validation: development and packaged applications launched and exited cleanly;
   the Windows mutex handle is explicitly released during shutdown.
-- Remaining issues: optional launch-at-login behavior.
+- Remaining issues: fresh-profile packaged validation remains in Mission 18/19.
 
 ## Mission 17 — Automated testing — IN PROGRESS
 
@@ -190,7 +193,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 62 total tests across configuration, localization, hotkeys, clipboard,
+- Tests added: 67 total tests across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: more UI resize/DPI and packaged integration coverage.

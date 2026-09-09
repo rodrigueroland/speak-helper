@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import logging
 import os
 import tempfile
 import time
@@ -24,6 +25,7 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QListWidget,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -41,6 +43,9 @@ from ..error_messages import localize_speech_error
 from ..hotkey_service import ACTION_READ, HotkeyService
 from ..i18n import Translator
 from ..speech_service import build_openai_speech_payload
+from ..startup_service import StartupService
+
+logger = logging.getLogger(__name__)
 
 EDGE_VOICES = (
     ("voice.en_us_aria", "en-US-AriaNeural"),
@@ -138,6 +143,7 @@ class SettingsDialog(QDialog):
         clipboard_watcher: ClipboardWatcher,
         player: AudioPlayer,
         log_path: Path,
+        startup_service: StartupService | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -147,6 +153,7 @@ class SettingsDialog(QDialog):
         self._clipboard_watcher = clipboard_watcher
         self._player = player
         self._log_path = log_path
+        self._startup_service = startup_service or StartupService()
         self._labels: list[tuple[QLabel, str]] = []
         self._texts: list[tuple[QWidget, str]] = []
         self._navigation_keys = [
@@ -246,6 +253,10 @@ class SettingsDialog(QDialog):
         self._mode = QComboBox()
         self._add_row(form, "mode.title", self._mode)
         layout.addLayout(form)
+        self._autostart = QCheckBox()
+        self._bind_text(self._autostart, "settings.autostart")
+        self._autostart.setEnabled(self._startup_service.supported)
+        layout.addWidget(self._autostart)
         layout.addStretch()
         return page
 
@@ -470,6 +481,7 @@ class SettingsDialog(QDialog):
         config = self._config
         self._language.setCurrentIndex(max(0, self._language.findData(config.language)))
         self._reload_mode_items(config.mode)
+        self._autostart.setChecked(self._startup_service.is_enabled())
         provider = str(config.get("tts", "provider_preset", default="custom"))
         provider_data = "edge" if config.backend == "edge" else provider
         self._reload_provider_items(provider_data)
@@ -589,6 +601,17 @@ class SettingsDialog(QDialog):
 
     def _save(self) -> None:
         config = self._config
+        autostart = self._autostart.isChecked()
+        startup_result = self._startup_service.set_enabled(autostart)
+        if not startup_result.success:
+            logger.error("autostart_update_failed reason=%s", startup_result.reason)
+            QMessageBox.critical(
+                self,
+                self._translator.text("error.title"),
+                self._translator.text("error.startup"),
+            )
+            return
+        config.set("ui", "autostart", autostart)
         provider = str(self._provider.currentData())
         config.set("tts", "backend", "edge" if provider == "edge" else "openai")
         config.set("tts", "provider_preset", provider)

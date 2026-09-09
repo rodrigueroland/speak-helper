@@ -54,3 +54,26 @@ def test_qwen_preset_remains_editable(qtbot, tmp_path):
     assert dialog._model.text() == "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice"
     assert dialog._voice.text() == "Vivian"
     assert dialog._base_url.isEnabled()
+
+
+def test_settings_reflect_actual_launch_at_login_state(qtbot, tmp_path):
+    config = Config(config_dir=tmp_path, locale_name="en_US")
+    translator = Translator(config)
+    registrar = MagicMock()
+    registrar.register.return_value = []
+    startup = MagicMock()
+    startup.supported = True
+    startup.is_enabled.return_value = True
+    dialog = SettingsDialog(
+        config,
+        translator,
+        hotkeys=HotkeyService(config, registrar=registrar),
+        clipboard_watcher=ClipboardWatcher(config),
+        player=AudioPlayer(),
+        log_path=tmp_path / "app.log",
+        startup_service=startup,
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._autostart.isEnabled()
+    assert dialog._autostart.isChecked()

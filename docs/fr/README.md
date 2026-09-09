@@ -40,6 +40,10 @@ Choisissez **English** ou **Français** dans **Paramètres → Général**. Le c
 est immédiat et persistant. Lors du premier lancement, une locale Windows française
 sélectionne le français ; les autres locales utilisent l'anglais.
 
+Sous Windows, **Paramètres → Général** permet aussi de lancer l'application à la
+connexion de l'utilisateur. Ce réglage utilise l'exécutable autonome courant et
+ne demande pas de droits administrateur.
+
 ## Modes du presse-papiers
 
 - **Sélection manuelle uniquement** : mode par défaut et le plus prévisible.

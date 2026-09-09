@@ -14,6 +14,7 @@ French locale, otherwise `en`).
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `ui.language` | locale-derived | `en` or `fr` |
+| `ui.autostart` | `false` | Launch at Windows user sign-in |
 | `trigger.mode` | `manual` | `manual`, `ask`, or `auto` |
 | `trigger.hotkey` | `ctrl+alt+r` | Read Selection chord |
 | `trigger.stop_hotkey` | `ctrl+alt+shift+x` | Stop chord |

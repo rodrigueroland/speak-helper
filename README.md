@@ -91,6 +91,10 @@ The user interface supports English and French. Change language under
 **Settings → General**; the visible UI updates immediately and the choice persists.
 English is the fallback for unknown or missing locales.
 
+On Windows, **Settings → General** also offers an optional per-user launch at
+sign-in setting. It uses the current packaged executable and does not require
+administrator privileges.
+
 ## TTS backends
 
 ### Edge-TTS

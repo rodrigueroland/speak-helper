@@ -292,6 +292,10 @@ class Config:
         return str(self.get("ui", "theme", default="system"))
 
     @property
+    def autostart(self) -> bool:
+        return bool(self.get("ui", "autostart", default=False))
+
+    @property
     def base_url(self) -> str:
         return str(self.get("tts", "base_url", default="http://127.0.0.1:8000/v1"))
 

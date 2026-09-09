@@ -21,6 +21,7 @@ from .logging_config import configure_logging
 from .ocr_service import OcrService
 from .selection_capture import SelectionCaptureService
 from .speech_service import SpeechService
+from .startup_service import StartupService
 from .text_filter import TextFilter
 from .text_normalizer import NormalizationOptions, normalize_for_speech
 from .ui.floating_dock import FloatingDock
@@ -92,6 +93,7 @@ class SpeakHelperApp:
         self._selection_capture = SelectionCaptureService(self._config)
         self._hotkeys = HotkeyService(self._config)
         self._ocr = OcrService(self._config)
+        self._startup = StartupService()
         self._dock = FloatingDock(self._config, self._translator)
         self._bubble = PromptBubble(self._config, self._translator)
         self._tray = TrayIcon(self._config, self._translator)
@@ -297,6 +299,7 @@ class SpeakHelperApp:
                 clipboard_watcher=self._clipboard_watcher,
                 player=self._player,
                 log_path=self._log_path,
+                startup_service=self._startup,
             )
             self._settings_dialog.saved.connect(self._on_settings_saved)
             self._settings_dialog.finished.connect(self._clear_settings_reference)
