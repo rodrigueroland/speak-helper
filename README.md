@@ -80,9 +80,10 @@ For a manual Read Selection request, Speak Helper:
 1. snapshots every available Qt clipboard MIME format;
 2. sends Copy to the focused application;
 3. waits for the Windows clipboard sequence number to change;
-4. captures and conservatively normalizes Unicode text;
-5. restores the original clipboard when configured;
-6. stops obsolete speech and synthesizes the new selection.
+4. retries temporarily locked or delayed providers until the configured deadline;
+5. captures and conservatively normalizes Unicode text;
+6. restores the original clipboard when configured;
+7. stops obsolete speech and synthesizes the new selection.
 
 This handles repeated identical selections without comparing clipboard text and
 suppresses automatic clipboard monitoring during its own transaction.

@@ -69,9 +69,11 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 
 - Objective: transact Copy/capture/restore reliably without fixed clipboard sleeps.
 - Decisions: use the Windows clipboard sequence number, preserve all Qt MIME
-  formats, use a polling deadline, and suppress self-generated watcher events.
+  formats, start the full polling deadline only after Copy injection, retry
+  temporarily locked providers, and suppress self-generated watcher events.
 - Files modified: `speak_helper/selection_capture.py`, `clipboard_watcher.py`, `main.py`.
-- Tests added: same-text capture, timeout, copy failure, restoration.
+- Tests added: same-text capture, timeout, Copy failure/exception, snapshot failure,
+  delayed provider retry, successful restoration, and restoration failure cleanup.
 - Validation: Windows probe passed 10/10 consecutive Unicode selection cycles.
 - Remaining issues: run the PyCharm/browser/Word/PDF packaged-app matrix.
 
@@ -200,7 +202,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 74 total test cases across configuration, localization, hotkeys, clipboard,
+- Tests added: 78 total test cases across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: none for automated service and UI boundaries; named-application

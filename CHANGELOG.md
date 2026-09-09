@@ -34,6 +34,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Retry temporarily locked/delayed clipboard providers until the configured deadline
+- Report clipboard snapshot, injection, and restoration failures without leaving capture active
 - Keep Windows registry integration type-safe on non-Windows CI hosts
 - Update CI actions to current Node.js 24-compatible releases
 - Wrap long diagnostic paths instead of clipping them in the Settings viewport

@@ -208,11 +208,17 @@ class SelectionCaptureService(QObject):
         if self._active:
             self.error.emit("capture_busy")
             return
+        try:
+            snapshot = self._clipboard.snapshot()
+            initial_sequence = self._clipboard.sequence_number()
+        except Exception:
+            logger.exception("selection_capture_snapshot_failed")
+            self.error.emit("capture_failed")
+            return
         self._active = True
         self._change_seen = False
-        self._snapshot = self._clipboard.snapshot()
-        self._initial_sequence = self._clipboard.sequence_number()
-        self._started_at = self._clock()
+        self._snapshot = snapshot
+        self._initial_sequence = initial_sequence
         logger.info("selection_capture_started sequence=%d", self._initial_sequence)
         self.capture_started.emit()
         # Let the global-hotkey keys return to their physical state before Ctrl+C.
@@ -225,22 +231,37 @@ class SelectionCaptureService(QObject):
     def _send_copy(self) -> None:
         if not self._active:
             return
-        if not self._injector.copy():
+        try:
+            copy_sent = self._injector.copy()
+        except Exception:
+            logger.exception("copy_injection_failed")
+            copy_sent = False
+        if not copy_sent:
             self.error.emit("capture_failed")
             self._restore_and_finish()
             return
+        self._started_at = self._clock()
         self._poll_timer.start(self._config.clipboard_poll_interval_ms)
 
     def _poll(self) -> None:
         if not self._active:
             self._poll_timer.stop()
             return
-        if self._clipboard.sequence_number() != self._initial_sequence:
+        try:
+            current_sequence = self._clipboard.sequence_number()
+        except Exception:
+            logger.debug("clipboard_sequence_temporarily_unavailable", exc_info=True)
+            current_sequence = self._initial_sequence
+        if current_sequence != self._initial_sequence:
             if not self._change_seen:
                 self._change_seen = True
                 logger.info("clipboard_changed")
                 self.clipboard_changed.emit()
-            text = self._clipboard.text().strip()
+            try:
+                text = self._clipboard.text().strip()
+            except Exception:
+                logger.debug("clipboard_text_temporarily_unavailable", exc_info=True)
+                text = ""
             if text:
                 logger.info("text_captured length=%d", len(text))
                 self.text_ready.emit(text)
@@ -255,8 +276,12 @@ class SelectionCaptureService(QObject):
     def _restore_and_finish(self) -> None:
         self._poll_timer.stop()
         if self._config.restore_clipboard:
-            self._clipboard.restore(self._snapshot)
-            QTimer.singleShot(75, self._finish)
+            try:
+                self._clipboard.restore(self._snapshot)
+            except Exception:
+                logger.exception("clipboard_restore_failed")
+                self.error.emit("restore_failed")
+            QTimer.singleShot(0, self._finish)
         else:
             self._finish()
 
