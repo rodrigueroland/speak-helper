@@ -26,9 +26,11 @@ def test_settings_dialog_retranslates_without_restart(qtbot, tmp_path):
     qtbot.addWidget(dialog)
 
     assert dialog.windowTitle() == "Settings"
+    assert dialog._edge_voice.itemText(0) == "English (United States) · Aria"
     translator.set_language("fr")
     assert dialog.windowTitle() == "Paramètres"
     assert dialog._navigation.item(0).text() == "Général"
+    assert dialog._edge_voice.itemText(0) == "Anglais (États-Unis) · Aria"
 
 
 def test_qwen_preset_remains_editable(qtbot, tmp_path):

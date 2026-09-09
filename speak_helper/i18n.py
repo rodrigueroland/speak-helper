@@ -135,6 +135,13 @@ EN: dict[str, str] = {
     "test.success": "Success ({duration_ms} ms)",
     "test.tts_phrase": "Speak Helper text to speech test.",
     "tray.tooltip": "Speak Helper · {status}",
+    "voice.en_gb_sonia": "English (United Kingdom) · Sonia",
+    "voice.en_us_aria": "English (United States) · Aria",
+    "voice.en_us_guy": "English (United States) · Guy",
+    "voice.fr_be_charline": "French (Belgium) · Charline",
+    "voice.fr_ca_sylvie": "French (Canada) · Sylvie",
+    "voice.fr_fr_denise": "French (France) · Denise",
+    "voice.fr_fr_henri": "French (France) · Henri",
 }
 
 FR: dict[str, str] = {
@@ -274,6 +281,13 @@ FR: dict[str, str] = {
     "test.success": "Réussi ({duration_ms} ms)",
     "test.tts_phrase": "Test de synthèse vocale de Speak Helper.",
     "tray.tooltip": "Speak Helper · {status}",
+    "voice.en_gb_sonia": "Anglais (Royaume-Uni) · Sonia",
+    "voice.en_us_aria": "Anglais (États-Unis) · Aria",
+    "voice.en_us_guy": "Anglais (États-Unis) · Guy",
+    "voice.fr_be_charline": "Français (Belgique) · Charline",
+    "voice.fr_ca_sylvie": "Français (Canada) · Sylvie",
+    "voice.fr_fr_denise": "Français (France) · Denise",
+    "voice.fr_fr_henri": "Français (France) · Henri",
 }
 
 CATALOGS: Mapping[str, Mapping[str, str]] = {"en": EN, "fr": FR}

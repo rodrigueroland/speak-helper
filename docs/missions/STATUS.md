@@ -28,7 +28,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Validation: Ruff formatting and lint pass; mypy passes; pytest passes on Python 3.12.
 - Remaining issues: CI and the packaged Windows build are tracked by Missions 19 and 21.
 
-## Mission 2 — Internationalization — IN PROGRESS
+## Mission 2 — Internationalization — DONE
 
 - Objective: provide complete runtime-switchable English and French UI catalogs.
 - Decisions: use one observable translation service and centralized catalogs;
@@ -36,8 +36,9 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Files modified: `speak_helper/i18n.py` and all modules under `speak_helper/ui/`.
 - Tests added: catalog parity, fallback, persistence, Settings runtime switch, and
   safe localized service-error classification.
-- Validation: native Windows renders inspected in English and French.
-- Remaining issues: finish the production string audit, including voice display names.
+- Validation: native Windows renders inspected in English and French; production
+  UI string scan completed, including runtime-localized voice display names.
+- Remaining issues: none for the current visible UI.
 
 ## Mission 3 — Configuration migration — DONE
 

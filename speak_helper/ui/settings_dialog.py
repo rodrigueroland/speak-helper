@@ -43,13 +43,13 @@ from ..i18n import Translator
 from .theme import LIGHT, application_stylesheet
 
 EDGE_VOICES = (
-    ("English (US) · Aria", "en-US-AriaNeural"),
-    ("English (US) · Guy", "en-US-GuyNeural"),
-    ("English (UK) · Sonia", "en-GB-SoniaNeural"),
-    ("Français (France) · Denise", "fr-FR-DeniseNeural"),
-    ("Français (France) · Henri", "fr-FR-HenriNeural"),
-    ("Français (Belgique) · Charline", "fr-BE-CharlineNeural"),
-    ("Français (Canada) · Sylvie", "fr-CA-SylvieNeural"),
+    ("voice.en_us_aria", "en-US-AriaNeural"),
+    ("voice.en_us_guy", "en-US-GuyNeural"),
+    ("voice.en_gb_sonia", "en-GB-SoniaNeural"),
+    ("voice.fr_fr_denise", "fr-FR-DeniseNeural"),
+    ("voice.fr_fr_henri", "fr-FR-HenriNeural"),
+    ("voice.fr_be_charline", "fr-BE-CharlineNeural"),
+    ("voice.fr_ca_sylvie", "fr-CA-SylvieNeural"),
 )
 
 
@@ -252,8 +252,8 @@ class SettingsDialog(QDialog):
         self._provider.activated.connect(self._provider_activated)
         self._add_row(form, "settings.provider", self._provider)
         self._edge_voice = QComboBox()
-        for label, identifier in EDGE_VOICES:
-            self._edge_voice.addItem(label, identifier)
+        for label_key, identifier in EDGE_VOICES:
+            self._edge_voice.addItem(self._translator.text(label_key), identifier)
         self._add_row(form, "settings.edge_voice", self._edge_voice)
         self._base_url = QLineEdit()
         self._add_row(form, "settings.base_url", self._base_url)
@@ -517,6 +517,7 @@ class SettingsDialog(QDialog):
         self._about_version.setText(tr("about.version", version=__version__))
         self._about_description.setText(tr("about.description"))
         self._about_derived.setText(tr("about.derived"))
+        self._reload_edge_voices(self._edge_voice.currentData() or self._config.edge_voice)
         self._reload_mode_items(self._mode.currentData() or self._config.mode)
         self._reload_provider_items(self._provider.currentData() or "edge")
         selected_theme = self._theme.currentData() or "system"
@@ -525,6 +526,14 @@ class SettingsDialog(QDialog):
         self._theme.setCurrentIndex(max(0, self._theme.findData(selected_theme)))
         self._refresh_cache_usage()
         self._refresh_diagnostics()
+
+    def _reload_edge_voices(self, selected: str) -> None:
+        self._edge_voice.blockSignals(True)
+        self._edge_voice.clear()
+        for label_key, identifier in EDGE_VOICES:
+            self._edge_voice.addItem(self._translator.text(label_key), identifier)
+        self._edge_voice.setCurrentIndex(max(0, self._edge_voice.findData(selected)))
+        self._edge_voice.blockSignals(False)
 
     def _reload_mode_items(self, selected: str) -> None:
         self._mode.blockSignals(True)
