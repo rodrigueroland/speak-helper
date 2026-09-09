@@ -25,6 +25,8 @@ French locale, otherwise `en`).
 | `tts.base_url` | `http://127.0.0.1:8000/v1` | Compatible API root |
 | `tts.api_key` | empty | Optional bearer token |
 | `tts.timeout_sec` | `30` | Request timeout |
+| `preprocessing.enabled` | `true` | Enable conservative speech preparation |
+| `preprocessing.strip_markdown_markers` | `true` | Remove structural Markdown markers |
 | `preprocessing.preserve_code` | `true` | Keep fenced code |
 | `preprocessing.url_mode` | `keep` | `keep`, `domain`, or `omit` |
 | `ocr.enabled` | `false` | Enable optional image OCR |
@@ -44,3 +46,10 @@ standard OpenAI speech payload. Custom providers receive only the standard field
 
 Environment variables remain supported as fallbacks when the corresponding value
 was not explicitly saved. Prefer the Settings UI for normal use.
+
+## Text processing
+
+The Speech page exposes every preprocessing option. Disabling text processing sends
+the selected text to the backend unchanged except for trimming surrounding whitespace.
+Code remains readable by default. URL handling can preserve the complete URL, keep
+only its domain, or replace it with the spoken word “link”.

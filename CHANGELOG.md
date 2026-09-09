@@ -12,6 +12,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Native Windows global hotkeys for Read, Stop, Pause/Resume, and Replay
 - Transactional selected-text capture with clipboard sequence detection and restore
 - Conservative Markdown/code/URL preprocessing
+- Localized Speech controls for enabling and configuring text preprocessing
 - Diagnostics panel and structured rotating logs
 - Qwen3-TTS local preset through the OpenAI-compatible backend
 - Repeatable Windows selection probe and expanded automated tests

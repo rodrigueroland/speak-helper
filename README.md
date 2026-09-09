@@ -151,6 +151,8 @@ server project's own requirements and security guidance.
 - URLs can be kept, reduced to their domain, or omitted.
 - Fenced source code is preserved by default and is removed only when configured.
 - French accents, Unicode, multiline text, and repeated selections are supported.
+- All processing options are available under **Settings → Speech** and can be
+  disabled as a group when exact source text is preferred.
 
 ## Diagnostics and logs
 

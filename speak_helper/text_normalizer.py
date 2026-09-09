@@ -14,6 +14,7 @@ _URL = re.compile(r"https?://[^\s<>]+", re.IGNORECASE)
 
 @dataclass(frozen=True, slots=True)
 class NormalizationOptions:
+    enabled: bool = True
     strip_markdown_markers: bool = True
     preserve_code: bool = True
     url_mode: str = "keep"
@@ -22,6 +23,8 @@ class NormalizationOptions:
 def normalize_for_speech(text: str, options: NormalizationOptions | None = None) -> str:
     """Normalize layout noise without removing technical meaning."""
     selected = options or NormalizationOptions()
+    if not selected.enabled:
+        return text.strip()
     result = text.replace("\r\n", "\n").replace("\r", "\n")
     if not selected.preserve_code:
         result = re.sub(r"```.*?```", "", result, flags=re.DOTALL)

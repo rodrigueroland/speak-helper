@@ -35,6 +35,45 @@ def test_settings_dialog_retranslates_without_restart(qtbot, tmp_path):
     assert dialog.windowTitle() == "Paramètres"
     assert dialog._navigation.item(0).text() == "Général"
     assert dialog._edge_voice.itemText(0) == "Anglais (États-Unis) · Aria"
+    assert dialog._url_mode.itemText(0) == "Lire l\u2019URL complète"
+
+
+def test_speech_preprocessing_settings_load_toggle_and_save(qtbot, tmp_path):
+    config = Config(config_dir=tmp_path, locale_name="en_US")
+    config.set("preprocessing", "strip_markdown_markers", False)
+    config.set("preprocessing", "preserve_code", False)
+    config.set("preprocessing", "url_mode", "domain")
+    translator = Translator(config)
+    registrar = MagicMock()
+    registrar.register.return_value = []
+    startup = MagicMock()
+    startup.supported = True
+    startup.is_enabled.return_value = False
+    startup.set_enabled.return_value.success = True
+    dialog = SettingsDialog(
+        config,
+        translator,
+        hotkeys=HotkeyService(config, registrar=registrar),
+        clipboard_watcher=ClipboardWatcher(config),
+        player=AudioPlayer(),
+        log_path=tmp_path / "app.log",
+        startup_service=startup,
+    )
+    qtbot.addWidget(dialog)
+
+    assert dialog._preprocessing_enabled.isChecked()
+    assert not dialog._strip_markdown.isChecked()
+    assert not dialog._preserve_code.isChecked()
+    assert dialog._url_mode.currentData() == "domain"
+
+    dialog._preprocessing_enabled.setChecked(False)
+    assert not dialog._strip_markdown.isEnabled()
+    assert not dialog._preserve_code.isEnabled()
+    assert not dialog._url_mode.isEnabled()
+    dialog._save()
+
+    assert config.get("preprocessing", "enabled") is False
+    assert config.get("preprocessing", "url_mode") == "domain"
 
 
 def test_qwen_preset_remains_editable(qtbot, tmp_path):

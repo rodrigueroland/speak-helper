@@ -192,6 +192,7 @@ class SpeakHelperApp:
 
     def _normalization_options(self) -> NormalizationOptions:
         return NormalizationOptions(
+            enabled=bool(self._config.get("preprocessing", "enabled", default=True)),
             strip_markdown_markers=bool(
                 self._config.get("preprocessing", "strip_markdown_markers", default=True)
             ),

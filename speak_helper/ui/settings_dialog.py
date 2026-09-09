@@ -318,6 +318,24 @@ class SettingsDialog(QDialog):
         test_row.addWidget(self._test_tts_button)
         test_row.addWidget(self._test_result, 1)
         layout.addLayout(test_row)
+        preprocessing_title = QLabel()
+        preprocessing_title.setProperty("section", True)
+        self._bind_text(preprocessing_title, "settings.preprocessing")
+        layout.addWidget(preprocessing_title)
+        self._preprocessing_enabled = QCheckBox()
+        self._strip_markdown = QCheckBox()
+        self._preserve_code = QCheckBox()
+        self._bind_text(self._preprocessing_enabled, "settings.preprocessing_enabled")
+        self._bind_text(self._strip_markdown, "settings.strip_markdown")
+        self._bind_text(self._preserve_code, "settings.preserve_code")
+        self._preprocessing_enabled.toggled.connect(self._update_preprocessing_controls)
+        layout.addWidget(self._preprocessing_enabled)
+        layout.addWidget(self._strip_markdown)
+        layout.addWidget(self._preserve_code)
+        preprocessing_form = QFormLayout()
+        self._url_mode = QComboBox()
+        self._add_row(preprocessing_form, "settings.url_mode", self._url_mode)
+        layout.addLayout(preprocessing_form)
         layout.addStretch()
         return page
 
@@ -517,6 +535,17 @@ class SettingsDialog(QDialog):
         self._timeout.setValue(config.timeout_sec)
         self._speed.setValue(config.speed)
         self._sentences.setValue(config.sentences_per_chunk)
+        self._preprocessing_enabled.setChecked(
+            bool(config.get("preprocessing", "enabled", default=True))
+        )
+        self._strip_markdown.setChecked(
+            bool(config.get("preprocessing", "strip_markdown_markers", default=True))
+        )
+        self._preserve_code.setChecked(
+            bool(config.get("preprocessing", "preserve_code", default=True))
+        )
+        self._reload_url_mode_items(str(config.get("preprocessing", "url_mode", default="keep")))
+        self._update_preprocessing_controls()
         self._enable_hotkeys.setChecked(config.hotkey_enabled)
         self._read_hotkey.setText(config.hotkey)
         self._stop_hotkey.setText(config.stop_hotkey)
@@ -562,6 +591,7 @@ class SettingsDialog(QDialog):
         self._reload_edge_voices(self._edge_voice.currentData() or self._config.edge_voice)
         self._reload_mode_items(self._mode.currentData() or self._config.mode)
         self._reload_provider_items(self._provider.currentData() or "edge")
+        self._reload_url_mode_items(self._url_mode.currentData() or "keep")
         selected_theme = self._theme.currentData() or "system"
         for index, theme in enumerate(("system", "light", "dark")):
             self._theme.setItemText(index, tr(f"theme.{theme}"))
@@ -598,6 +628,14 @@ class SettingsDialog(QDialog):
         self._provider.blockSignals(False)
         self._update_provider_controls()
 
+    def _reload_url_mode_items(self, selected: str) -> None:
+        self._url_mode.blockSignals(True)
+        self._url_mode.clear()
+        for mode in ("keep", "domain", "omit"):
+            self._url_mode.addItem(self._translator.text(f"url.{mode}"), mode)
+        self._url_mode.setCurrentIndex(max(0, self._url_mode.findData(selected)))
+        self._url_mode.blockSignals(False)
+
     def _language_selected(self) -> None:
         language = self._language.currentData()
         if language:
@@ -609,6 +647,12 @@ class SettingsDialog(QDialog):
         self._edge_voice.setEnabled(is_edge)
         for widget in (self._base_url, self._model, self._voice, self._api_key):
             widget.setEnabled(not is_edge)
+
+    def _update_preprocessing_controls(self) -> None:
+        enabled = self._preprocessing_enabled.isChecked()
+        self._strip_markdown.setEnabled(enabled)
+        self._preserve_code.setEnabled(enabled)
+        self._url_mode.setEnabled(enabled)
 
     def _provider_activated(self) -> None:
         self._update_provider_controls()
@@ -647,6 +691,10 @@ class SettingsDialog(QDialog):
         config.set("tts", "timeout_sec", self._timeout.value())
         config.set("tts", "speed", self._speed.value())
         config.set("tts", "sentences_per_chunk", self._sentences.value())
+        config.set("preprocessing", "enabled", self._preprocessing_enabled.isChecked())
+        config.set("preprocessing", "strip_markdown_markers", self._strip_markdown.isChecked())
+        config.set("preprocessing", "preserve_code", self._preserve_code.isChecked())
+        config.set("preprocessing", "url_mode", self._url_mode.currentData())
         config.set("trigger", "mode", self._mode.currentData())
         config.set("trigger", "hotkey_enabled", self._enable_hotkeys.isChecked())
         config.set("trigger", "hotkey", self._read_hotkey.text().strip())

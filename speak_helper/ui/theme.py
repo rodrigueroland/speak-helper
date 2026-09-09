@@ -77,6 +77,7 @@ def application_stylesheet(palette: Palette = LIGHT) -> str:
             font-size: 10pt;
         }}
         QLabel[muted="true"] {{ color: {palette.text_muted}; }}
+        QLabel[section="true"] {{ font-weight: 600; padding-top: 8px; }}
         QLineEdit, QComboBox, QSpinBox, QDoubleSpinBox {{
             min-height: 28px;
             padding: 2px 8px;

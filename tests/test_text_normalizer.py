@@ -26,3 +26,9 @@ def test_url_modes() -> None:
         "See docs.example.com now"
     )
     assert normalize_for_speech(source, NormalizationOptions(url_mode="omit")) == "See link now"
+
+
+def test_preprocessing_can_be_disabled_without_altering_content() -> None:
+    source = "# Heading\r\n\r\n- item   with spaces"
+
+    assert normalize_for_speech(source, NormalizationOptions(enabled=False)) == source

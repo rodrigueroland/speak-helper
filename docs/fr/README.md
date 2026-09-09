@@ -108,6 +108,8 @@ embarqués ni imposés par Speak Helper.
 - Le nettoyage Markdown reste conservateur.
 - Le code source entre blocs balisés est lu par défaut.
 - Les accents français, Unicode et textes multilignes sont conservés.
+- Tous les réglages de préparation sont accessibles dans **Paramètres → Voix** ;
+  ils peuvent être désactivés ensemble pour conserver le texte source.
 
 ## Diagnostic
 

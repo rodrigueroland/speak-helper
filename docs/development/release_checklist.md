@@ -9,7 +9,7 @@ release commit and packaged artifact.
 - [x] Ruff formatting check
 - [x] Ruff lint
 - [x] mypy
-- [x] pytest (78 test cases on Windows/Python 3.12)
+- [x] pytest (80 test cases on Windows/Python 3.12)
 - [x] PyCharm shared run configuration and legacy root launcher smoke
 - [x] Every Settings page at minimum size in EN/FR and light/dark themes
 - [x] Settings layout at 150% Qt scaling
