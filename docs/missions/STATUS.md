@@ -26,8 +26,11 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Files modified: `.gitignore`, `pyproject.toml`, `uv.lock`, `scripts/check.ps1`,
   root compatibility `main.py`, and `.run/Speak Helper.run.xml`.
 - Tests added: root launcher delegation; this mission also makes the existing and
-  subsequent tests enforceable.
-- Validation: Ruff formatting and lint pass; mypy passes; pytest passes on Python 3.12.
+  subsequent tests enforceable. The shared PyCharm XML verifies its script and
+  working-directory fields.
+- Validation: Ruff formatting and lint pass; mypy passes; pytest passes on Python
+  3.12; PyCharm 2026.1 rejected module-only XML, so the configuration now launches
+  the validated root compatibility script explicitly.
 - Remaining issues: CI and the packaged Windows build are tracked by Missions 19 and 21.
 
 ## Mission 2 — Internationalization — DONE
@@ -217,7 +220,7 @@ Statuses are factual: `TODO`, `IN PROGRESS`, `BLOCKED`, or `DONE`.
 - Decisions: use pytest-qt and injected registrars/clipboard adapters; reserve live
   providers for explicit probes.
 - Files modified: `tests/`.
-- Tests added: 91 total test cases across configuration, localization, hotkeys, clipboard,
+- Tests added: 92 total test cases across configuration, localization, hotkeys, clipboard,
   TTS, audio, preprocessing, Settings, and legacy filtering.
 - Validation: full suite passes.
 - Remaining issues: none for automated service and UI boundaries; named-application

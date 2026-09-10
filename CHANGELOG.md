@@ -36,6 +36,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- Launch the shared PyCharm configuration through the root compatibility script
 - Display active non-hotkey diagnostic booleans as Enabled instead of Registered
 - Wait for physical hotkey modifiers to be released before injecting Windows Copy
 - Enforce the configured maximum length for manual, automatic, and OCR speech
